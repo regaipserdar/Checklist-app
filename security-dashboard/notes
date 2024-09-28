@@ -1,0 +1,79 @@
+# PocketBase Koleksiyon Erişim Kuralları
+
+## users Koleksiyonu
+
+- List Rule: `id = @request.auth.id`
+- View Rule: `id = @request.auth.id`
+- Create Rule: `` (boş bırakın, PocketBase'in varsayılan kayıt sürecini kullanın)
+- Update Rule: `id = @request.auth.id`
+- Delete Rule: `id = @request.auth.id`
+
+Açıklama: Kullanıcılar sadece kendi bilgilerini görebilir ve düzenleyebilir.
+
+## flows Koleksiyonu
+
+- List Rule: `isSystemFlow = true || (creator = @request.auth.id) || (isShared = true)`
+- View Rule: `isSystemFlow = true || (creator = @request.auth.id) || (isShared = true)`
+- Create Rule: `@request.auth.id != ''`
+- Update Rule: `creator = @request.auth.id || @collection.users.id = @request.auth.id`
+- Delete Rule: `creator = @request.auth.id`
+
+Açıklama:
+- Herkes sistem flowlarını ve paylaşılan flowları görebilir.
+- Kullanıcılar kendi flowlarını görebilir, düzenleyebilir ve silebilir.
+- Kimliği doğrulanmış herhangi bir kullanıcı yeni flow oluşturabilir.
+- Admin (users koleksiyonunda kayıtlı herhangi bir kullanıcı) herhangi bir flow'u güncelleyebilir.
+
+## nodes Koleksiyonu
+
+- List Rule: `flow.isSystemFlow = true || (flow.creator = @request.auth.id) || (flow.isShared = true)`
+- View Rule: `flow.isSystemFlow = true || (flow.creator = @request.auth.id) || (flow.isShared = true)`
+- Create Rule: `flow.creator = @request.auth.id`
+- Update Rule: `flow.creator = @request.auth.id`
+- Delete Rule: `flow.creator = @request.auth.id`
+
+Açıklama:
+- Node'ların görünürlüğü, bağlı oldukları flow'un kurallarına bağlıdır.
+- Kullanıcılar sadece kendi flowlarına ait node'lar oluşturabilir, düzenleyebilir ve silebilir.
+
+
+
+# PocketBase Güncellenmiş Şema (Users Koleksiyonu ile)
+
+## 1. users Koleksiyonu (Mevcut)
+
+PocketBase'in varsayılan `users` koleksiyonuna şu alanları ekleyin:
+
+1. "New field" butonuna tıklayın ve aşağıdaki alanı ekleyin:
+   - custom_collections_count (type: number, min: 0, max: 3, default: 0)
+
+## 2. flows Koleksiyonu
+
+1. "New collection" butonuna tıklayın.
+2. Collection name: `flows`
+3. Type: `Base`
+4. Alanları ekleyin:
+   - title (type: text, required: yes)
+   - description (type: editor, required: yes)
+   - isSystemFlow (type: bool, default: false)
+   - creator (type: relation, related collection: users)
+
+## 3. nodes Koleksiyonu
+
+1. "New collection" butonuna tıklayın.
+2. Collection name: `nodes`
+3. Type: `Base`
+4. Alanları ekleyin:
+   - title (type: text, required: yes)
+   - description (type: editor, required: yes)
+   - tips (type: editor, required: no)
+   - flow (type: relation, related collection: flows, required: yes)
+   - position (type: json)
+   - order (type: number)
+
+## Notlar
+
+- users koleksiyonundaki `custom_collections_count` alanı, kullanıcının oluşturduğu özel koleksiyon (flow) sayısını takip etmek için kullanılacak.
+- Her flow artık doğrudan bir kullanıcıya ait olacak.
+- Sistem flowları ve kullanıcı flowları aynı `flows` koleksiyonunda tutulacak, `isSystemFlow` alanı ile ayrılacak.
+- API Rules ve Indexes'leri uygun şekilde ayarlamayı unutmayın.
