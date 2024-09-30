@@ -81,11 +81,12 @@ async function fetchFlowNodes(flowId: string): Promise<FlowNode[]> {
   try {
     console.log('Fetching flow nodes for flow ID:', flowId);
     const records = await pb.collection('nodes').getFullList<FlowNode>({
-      filter: `flow="${flowId}"`,
       sort: 'order',
     });
-    console.log('Fetched records:', records);
-    return records.map(record => ({
+    console.log('All fetched records:', records);
+    const filteredRecords = records.filter(record => record.flow.includes(flowId));
+    console.log('Filtered records for flow:', filteredRecords);
+    return filteredRecords.map(record => ({
       ...record,
       position: record.position || '{"x": 0, "y": 0}',
     }));

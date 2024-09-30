@@ -72,33 +72,172 @@
 }
 
 /* Annotation ile ilgili stiller kaldırıldı */
+@layer base {
+  html, body, #root {
+    @apply h-full w-full m-0 p-0 overflow-hidden;
+  }
+}
+
+#root {
+  @apply flex flex-col;
+}
+
+.react-flow__node {
+  @apply font-sans;
+}
 
 .custom-node {
-  padding: 10px;
-  border-radius: 5px;
-  font-size: 12px;
-  color: #222;
-  text-align: center;
-  width: 150px;
+  @apply shadow-md transition-shadow duration-300 ease-in-out;
+}
+
+.custom-node:hover {
+  @apply shadow-lg;
+}
+
+.custom-node .react-flow__handle {
+  @apply w-3 h-3 bg-gray-400;
+}
+
+.custom-node .react-flow__handle:hover {
+  @apply bg-gray-600;
 }
 
 .start-node {
-  background-color: #6ede87;
-  border: 2px solid #3fa252;
+  @apply bg-green-200 border-green-400;
 }
 
 .end-node {
-  background-color: #ff9a9a;
-  border: 2px solid #ff5757;
+  @apply bg-red-200 border-red-400;
 }
 
 .normal-node {
-  background-color: #ffcc66;
-  border: 2px solid #ffaa00;
+  @apply bg-yellow-200 border-yellow-400;
 }
 
 .sticky-note {
-  background-color: #ffd700;
-  border: 2px solid #ffa500;
-  box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+  @apply bg-yellow-100 border-yellow-300;
+}
+
+.react-flow__edge-path {
+  @apply stroke-2 stroke-gray-400;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  @apply stroke-gray-600;
+}
+
+.react-flow__node-customNode {
+  @apply select-none;
+}
+
+.react-flow__edge-path {
+  @apply stroke-2 stroke-gray-400 transition-all duration-300 ease-in-out;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  @apply stroke-gray-600 stroke-[3px];
+}
+
+/* Edge animasyonu için */
+@keyframes dashedLine {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.react-flow__edge-path {
+  animation: dashedLine 1s linear infinite;
+  stroke-dasharray: 5, 5;
+}
+
+@keyframes selectedNodePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 153, 225, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 153, 225, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 153, 225, 0);
+  }
+}
+
+.react-flow__node.selected {
+  animation: selectedNodePulse 2s infinite;
+}
+
+
+
+.sticky-note {
+  width: 200px;
+  height: auto;
+  min-height: 100px;
+  background-color: #feff9c;
+  padding: 15px;
+  position: relative;
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-size: 14px;
+  color: #333;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transform: rotate(-2deg);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sticky-note::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-width: 0 16px 16px 0;
+  border-style: solid;
+  border-color: #e8e8e8 #fff;
+  box-shadow: -1px 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.sticky-note::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.3) 0%,
+      transparent 50%,
+      rgba(0, 0, 0, 0.05) 100%
+    );
+  pointer-events: none;
+}
+
+.sticky-note:hover {
+  transform: scale(1.05) rotate(-1deg);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sticky-note-content {
+  width: 100%;
+  height: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.sticky-note-actions {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sticky-note:hover .sticky-note-actions {
+  opacity: 1;
+}
+
+.sticky-note.selected {
+  box-shadow: 0 0 0 2px #4299e1, 0 4px 6px rgba(0, 0, 0, 0.1);
 }

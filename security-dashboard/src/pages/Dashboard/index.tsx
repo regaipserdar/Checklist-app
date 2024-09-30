@@ -16,7 +16,6 @@ import 'reactflow/dist/style.css';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Pencil, Trash2 } from 'lucide-react';
 import {
   Drawer,
   DrawerClose,
@@ -32,8 +31,6 @@ import { useToast } from "@/hooks/use-toast";
 import { createDefaultNode } from '../../services/DefaultNodesService';
 import { createSystemFlowNodes } from '../../services/SystemFlow-Nodes';
 import { createUserFlowNode } from '../../services/UserFlowService';
-
-const MemoizedCustomNode = React.memo(CustomNode);
 
 const FlowWithProvider: React.FC = () => {
   const { toast } = useToast();
@@ -102,8 +99,8 @@ const FlowWithProvider: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Error processing dropped item:', error);
-        const newNode = createDefaultNode(type, position, type, '');
+        console.log('Creating default node of type:', type);
+        const newNode = createDefaultNode(type, position);
         setNodes((nds) => [...nds, newNode]);
       }
     },
@@ -121,13 +118,6 @@ const FlowWithProvider: React.FC = () => {
       }))
     );
     setSelectedNode(node);
-    setEditedNodeData({ 
-      label: node.data.label, 
-      description: node.data.description || '',
-      tips: node.data.tips || '',
-      usable_pentest_tools: node.data.usable_pentest_tools || '',
-    });
-    setIsDrawerOpen(true);
   }, [setNodes]);
 
   const handleEdit = useCallback((event: React.MouseEvent, node: Node) => {
@@ -177,34 +167,20 @@ const FlowWithProvider: React.FC = () => {
 
   const memoizedNodeTypes = useMemo<NodeTypes>(() => ({
     customNode: (props: any) => (
-      <MemoizedCustomNode {...props}>
-        {props.data.isSelected && (
-          <div className="absolute top-0 right-0 flex">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={(event) => handleEdit(event, props)}
-              className="h-6 w-6"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={(event) => handleDelete(event, props.id)}
-              className="h-6 w-6"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-      </MemoizedCustomNode>
+      <CustomNode 
+        {...props}
+        data={{
+          ...props.data,
+          onEdit: handleEdit,
+          onDelete: handleDelete,
+        }}
+      />
     ),
   }), [handleEdit, handleDelete]);
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="flex-1" ref={reactFlowWrapper}>
+      <div className="flex-1 h-[calc(100vh-4rem)]" ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -235,25 +211,25 @@ const FlowWithProvider: React.FC = () => {
               <Input
                 value={editedNodeData.label}
                 onChange={(e) => handleNodeDataChange('label', e.target.value)}
-                className="mb-2 bg-input text-input-foreground"
+                className="mb-2"
                 placeholder="Node Label"
               />
               <Textarea
                 value={editedNodeData.description}
                 onChange={(e) => handleNodeDataChange('description', e.target.value)}
-                className="mb-2 bg-input text-input-foreground"
+                className="mb-2"
                 placeholder="Node Description"
               />
               <Textarea
                 value={editedNodeData.tips}
                 onChange={(e) => handleNodeDataChange('tips', e.target.value)}
-                className="mb-2 bg-input text-input-foreground"
+                className="mb-2"
                 placeholder="Tips"
               />
               <Textarea
                 value={editedNodeData.usable_pentest_tools}
                 onChange={(e) => handleNodeDataChange('usable_pentest_tools', e.target.value)}
-                className="mb-2 bg-input text-input-foreground"
+                className="mb-2"
                 placeholder="Usable Pentest Tools"
               />
             </div>
