@@ -1,22 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Hexagon, Plus } from 'lucide-react';
 import { Flow } from '../../services/Pb-getFlowService';
-import { useToast } from "@/hooks/use-toast";
-import { useSystemFlows, useUserFlows } from '../../services/FlowContexts';
+import { useSystemFlows } from '../../services/FlowContexts';
 import { getDefaultNodes, DefaultNode } from '../../services/DefaultNodesService';
-import { createNewFlow } from '../../services/UserFlowService';
-import { getCurrentUser } from '../../services/Pb-getFlowService';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { Skeleton } from "@/components/ui/skeleton";
+import pb from '../../services/Pb-getFlowService';
 
 const Sidebar: React.FC = () => {
-  const { toast } = useToast();
-  const [user] = useState(getCurrentUser());
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const [userFlows, setUserFlows] = useState<Flow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const { systemFlows, loading: systemLoading } = useSystemFlows();
-  const { userFlows, loading: userLoading, refreshUserFlows } = useUserFlows();
   const defaultNodes = getDefaultNodes();
+
+  useEffect(() => {
+    const fetchUserFlows = async () => {
+      if (user && user.id) {
+        try {
+          console.log('Fetching user flows for user:', user.id);
+          const records = await pb.collection('flows').getFullList<Flow>({
+            sort: '-created',
+            filter: `creator ?~ "${user.id}" && isShared = true`,
+          });
+          console.log('Fetched user flows:', records);
+          setUserFlows(records);
+        } catch (error) {
+          console.error('Error fetching user flows:', error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+      }
+    };
+
+    fetchUserFlows();
+  }, [user]);
+
+  useEffect(() => {
+    console.log('User flows updated:', userFlows);
+  }, [userFlows]);
 
   const onDragStart = (event: React.DragEvent, nodeType: string, flow?: Flow) => {
     if (flow) {
@@ -30,26 +60,12 @@ const Sidebar: React.FC = () => {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleCreateNewFlow = async () => {
-    if (!user) {
-      console.log('Attempted to create new flow without user');
-      return;
-    }
-    try {
-      await createNewFlow(user.id);
-      refreshUserFlows();
-      toast({
-        title: "Success",
-        description: "New flow created successfully.",
-      });
-    } catch (error) {
-      console.error('Error creating new flow:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create new flow. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleCreateNewFlow = () => {
+    navigate('/flows/new');
+  };
+
+  const handleFlowClick = (flowId: string) => {
+    navigate(`/flows/${flowId}`);
   };
 
   const filteredItems = [
@@ -58,9 +74,21 @@ const Sidebar: React.FC = () => {
     ...userFlows.filter(flow => flow.title.toLowerCase().includes(searchTerm.toLowerCase()))
   ];
 
-  if (systemLoading || userLoading) {
-    return <div>Loading...</div>;
-  }
+  const LoadingSkeleton = () => (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-4 w-3/4 mt-6" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-4 w-3/4 mt-6" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full mt-6" />
+    </div>
+  );
 
   return (
     <aside className="w-64 bg-background text-foreground h-full flex flex-col overflow-hidden border-r border-border">
@@ -82,58 +110,72 @@ const Sidebar: React.FC = () => {
         />
       </div>
       <nav className="flex-1 overflow-y-auto p-4">
-        <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">DEFAULT NODES</h2>
-        <ul className="space-y-2 mb-6">
-          {filteredItems.filter((item): item is DefaultNode => 'type' in item).map((item, index) => (
-            <li key={index}>
-              <div
-                className="bg-secondary hover:bg-secondary/80 text-secondary-foreground p-2 rounded cursor-move transition-colors duration-200"
-                draggable
-                onDragStart={(event) => onDragStart(event, item.type)}
-              >
-                {item.label}
-              </div>
-            </li>
-          ))}
-        </ul>
-        
-        <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">SYSTEM FLOWS</h2>
-        <ul className="space-y-2 mb-6">
-          {filteredItems.filter((item): item is Flow => 'isSystemFlow' in item && item.isSystemFlow).map((flow) => (
-            <li key={flow.id}>
-              <div
-                className="bg-primary hover:bg-primary/80 text-primary-foreground p-2 rounded cursor-pointer transition-colors duration-200"
-                draggable
-                onDragStart={(event) => onDragStart(event, 'systemFlow', flow)}
-              >
-                {flow.title}
-              </div>
-            </li>
-          ))}
-        </ul>
-        
-        {user && (
+        {loading || systemLoading ? (
+          <LoadingSkeleton />
+        ) : (
           <>
-            <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">YOUR FLOWS</h2>
+            <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">DEFAULT NODES</h2>
             <ul className="space-y-2 mb-6">
-              {filteredItems.filter((item): item is Flow => 'isSystemFlow' in item && !item.isSystemFlow).map((flow) => (
+              {filteredItems.filter((item): item is DefaultNode => 'type' in item).map((item, index) => (
+                <li key={index}>
+                  <div
+                    className="bg-secondary hover:bg-secondary/80 text-secondary-foreground p-2 rounded cursor-move transition-colors duration-200"
+                    draggable
+                    onDragStart={(event) => onDragStart(event, item.type)}
+                  >
+                    {item.label}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            
+            <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">SYSTEM FLOWS</h2>
+            <ul className="space-y-2 mb-6">
+              {filteredItems.filter((item): item is Flow => 'isSystemFlow' in item && item.isSystemFlow).map((flow) => (
                 <li key={flow.id}>
                   <div
-                    className="bg-secondary hover:bg-secondary/80 text-secondary-foreground p-2 rounded cursor-pointer transition-colors duration-200"
+                    className="bg-primary hover:bg-primary/80 text-primary-foreground p-2 rounded cursor-pointer transition-colors duration-200"
                     draggable
-                    onDragStart={(event) => onDragStart(event, 'userFlow', flow)}
+                    onDragStart={(event) => onDragStart(event, 'systemFlow', flow)}
+                    onClick={() => handleFlowClick(flow.id)}
                   >
                     {flow.title}
                   </div>
                 </li>
               ))}
             </ul>
-            <Button 
-              onClick={handleCreateNewFlow} 
-              className="w-full flex items-center justify-center"
-            >
-              <Plus className="mr-2 h-4 w-4" /> New Flow
-            </Button>
+            
+            {user && (
+              <>
+                <h2 className="text-sm uppercase tracking-wider text-muted-foreground mb-2">YOUR FLOWS</h2>
+                {loading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : userFlows.length > 0 ? (
+                  <ul className="space-y-2 mb-6">
+                    {userFlows.map((flow) => (
+                      <li key={flow.id}>
+                        <div
+                          className="bg-secondary hover:bg-secondary/80 text-secondary-foreground p-2 rounded cursor-pointer transition-colors duration-200"
+                          draggable
+                          onDragStart={(event) => onDragStart(event, 'userFlow', flow)}
+                          onClick={() => handleFlowClick(flow.id)}
+                        >
+                          {flow.title}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No flows found.</p>
+                )}
+                <Button 
+                  onClick={handleCreateNewFlow} 
+                  className="w-full flex items-center justify-center"
+                >
+                  <Plus className="mr-2 h-4 w-4" /> New Flow
+                </Button>
+              </>
+            )}
           </>
         )}
       </nav>

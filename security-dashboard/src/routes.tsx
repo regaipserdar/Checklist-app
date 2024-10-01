@@ -1,5 +1,6 @@
 import { RouteObject } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
+import Flow from './pages/Flow';
 import AuthenticationPage from './pages/Login/login';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
@@ -21,7 +22,14 @@ const routes: RouteObject[] = [
             path: 'dashboard',
             element: <Dashboard />,
           },
-          // Add other protected routes here if needed
+          {
+            path: 'flows/:flowId',
+            element: <Flow />,
+          },
+          {
+            path: 'flows/new',
+            element: <Flow />,
+          },
         ],
       },
     ],

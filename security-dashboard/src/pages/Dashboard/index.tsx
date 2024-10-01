@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from "react";
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -11,8 +11,8 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   useReactFlow,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from "reactflow";
+import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,12 +25,14 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import CustomNode from '../../components/CustomNode';
-import { useSystemFlows, useUserFlows } from '../../services/FlowContexts';
+import CustomNode from "../../components/CustomNode";
+import { useSystemFlows, useUserFlows } from "../../services/FlowContexts";
 import { useToast } from "@/hooks/use-toast";
-import { createDefaultNode } from '../../services/DefaultNodesService';
-import { createSystemFlowNodes } from '../../services/SystemFlow-Nodes';
-import { createUserFlowNode } from '../../services/UserFlowService';
+import { createDefaultNode } from "../../services/DefaultNodesService";
+import { createSystemFlowNodes } from "../../services/SystemFlow-Nodes";
+import { createUserFlowNode } from "../../services/UserFlowService";
+
+const MemoizedCustomNode = React.memo(CustomNode);
 
 const FlowWithProvider: React.FC = () => {
   const { toast } = useToast();
@@ -38,23 +40,26 @@ const FlowWithProvider: React.FC = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [editedNodeData, setEditedNodeData] = useState<{ 
-    label: string; 
+  const [editedNodeData, setEditedNodeData] = useState<{
+    label: string;
     description: string;
     tips: string;
     usable_pentest_tools: string;
-  }>({ label: '', description: '', tips: '', usable_pentest_tools: '' });
+  }>({ label: "", description: "", tips: "", usable_pentest_tools: "" });
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  
+
   const { screenToFlowPosition } = useReactFlow();
   const { systemFlows } = useSystemFlows();
   const { userFlows } = useUserFlows();
 
-  const onConnect = useCallback((params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+  const onConnect = useCallback(
+    (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges],
+  );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
   }, []);
 
   const onDrop = useCallback(
@@ -64,97 +69,118 @@ const FlowWithProvider: React.FC = () => {
       if (!reactFlowWrapper.current) return;
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const type = event.dataTransfer.getData('application/reactflow');
+      const type = event.dataTransfer.getData("application/reactflow");
 
       const position = screenToFlowPosition({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
       });
-      
-      console.log('Dropped item type:', type);
-      console.log('Dropped at position:', position);
 
       try {
-        const parsedData = JSON.parse(type);
-        console.log('Parsed data:', parsedData);
+        let parsedData;
+        try {
+          parsedData = JSON.parse(type);
+        } catch (error) {
+          parsedData = { type: type };
+        }
 
-        if (parsedData.type === 'systemFlow') {
-          const systemFlow = systemFlows.find(flow => flow.id === parsedData.flowId);
+        if (parsedData.type === "systemFlow") {
+          const systemFlow = systemFlows.find(
+            (flow) => flow.id === parsedData.flowId,
+          );
           if (systemFlow) {
-            console.log('Found system flow:', systemFlow);
             const result = await createSystemFlowNodes(systemFlow, position);
-            console.log('Created system flow nodes:', result);
-            
             setNodes((nds) => [...nds, ...result.nodes]);
             setEdges((eds) => [...eds, ...result.edges]);
-            
-            console.log('Updated nodes:', [...nodes, ...result.nodes]);
-            console.log('Updated edges:', [...edges, ...result.edges]);
           }
-        } else if (parsedData.type === 'userFlow') {
-          const userFlow = userFlows.find(flow => flow.id === parsedData.flowId);
+        } else if (parsedData.type === "userFlow") {
+          const userFlow = userFlows.find(
+            (flow) => flow.id === parsedData.flowId,
+          );
           if (userFlow) {
             const newNode = createUserFlowNode(userFlow, position);
             setNodes((nds) => [...nds, newNode]);
           }
+        } else {
+          const newNode = createDefaultNode(parsedData.type, position);
+          setNodes((nds) => [...nds, newNode]);
         }
       } catch (error) {
-        console.log('Creating default node of type:', type);
-        const newNode = createDefaultNode(type, position);
-        setNodes((nds) => [...nds, newNode]);
+        console.error("Error processing dropped item:", error);
       }
     },
-    [screenToFlowPosition, setNodes, setEdges, systemFlows, userFlows, nodes, edges]
+    [screenToFlowPosition, setNodes, setEdges, systemFlows, userFlows],
   );
 
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          isSelected: n.id === node.id,
-        },
-      }))
-    );
-    setSelectedNode(node);
-  }, [setNodes]);
+  const onNodeClick = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: {
+            ...n.data,
+            isSelected: n.id === node.id,
+          },
+        })),
+      );
+      setSelectedNode(node);
+      setEditedNodeData({
+        label: node.data.label,
+        description: node.data.description || "",
+        tips: node.data.tips || "",
+        usable_pentest_tools: node.data.usable_pentest_tools || "",
+      });
+      setIsDrawerOpen(true);
+    },
+    [setNodes],
+  );
 
-  const handleEdit = useCallback((event: React.MouseEvent, node: Node) => {
-    event.stopPropagation();
+  const handleEdit = useCallback((node: Node) => {
     setSelectedNode(node);
-    setEditedNodeData({ 
-      label: node.data.label, 
-      description: node.data.description || '',
-      tips: node.data.tips || '',
-      usable_pentest_tools: node.data.usable_pentest_tools || '',
+    setEditedNodeData({
+      label: node.data.label,
+      description: node.data.description || "",
+      tips: node.data.tips || "",
+      usable_pentest_tools: node.data.usable_pentest_tools || "",
     });
     setIsDrawerOpen(true);
   }, []);
 
-  const handleDelete = useCallback((event: React.MouseEvent, nodeId: string) => {
-    event.stopPropagation();
-    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
-    setSelectedNode(null);
-    setIsDrawerOpen(false);
-    toast({
-      title: "Node Deleted",
-      description: "The node has been successfully removed.",
-    });
-  }, [setNodes, toast]);
+  const handleDelete = useCallback(
+    (nodeId: string) => {
+      setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+      setSelectedNode(null);
+      setIsDrawerOpen(false);
+      toast({
+        title: "Node Deleted",
+        description: "The node has been successfully removed.",
+      });
+    },
+    [setNodes, toast],
+  );
 
-  const handleNodeDataChange = useCallback((field: keyof typeof editedNodeData, value: string) => {
-    setEditedNodeData(prev => ({ ...prev, [field]: value }));
-  }, []);
+  const handleNodeDataChange = useCallback(
+    (field: keyof typeof editedNodeData, value: string) => {
+      setEditedNodeData((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
 
   const handleSaveNodeData = useCallback(() => {
     if (selectedNode) {
       setNodes((nds) =>
         nds.map((node) =>
           node.id === selectedNode.id
-            ? { ...node, data: { ...node.data, ...editedNodeData, isSelected: false } }
-            : node
-        )
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  ...editedNodeData,
+                  isSelected: false,
+                },
+              }
+            : node,
+        ),
       );
       setSelectedNode(null);
       setIsDrawerOpen(false);
@@ -165,22 +191,25 @@ const FlowWithProvider: React.FC = () => {
     }
   }, [selectedNode, editedNodeData, setNodes, toast]);
 
-  const memoizedNodeTypes = useMemo<NodeTypes>(() => ({
-    customNode: (props: any) => (
-      <CustomNode 
-        {...props}
-        data={{
-          ...props.data,
-          onEdit: handleEdit,
-          onDelete: handleDelete,
-        }}
-      />
-    ),
-  }), [handleEdit, handleDelete]);
+  const memoizedNodeTypes = useMemo<NodeTypes>(
+    () => ({
+      customNode: (props: any) => (
+        <MemoizedCustomNode
+          {...props}
+          data={{
+            ...props.data,
+            onEdit: () => handleEdit(props),
+            onDelete: () => handleDelete(props.id),
+          }}
+        />
+      ),
+    }),
+    [handleEdit, handleDelete],
+  );
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="flex-1 h-[calc(100vh-4rem)]" ref={reactFlowWrapper}>
+      <div className="flex-1" ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -210,26 +239,30 @@ const FlowWithProvider: React.FC = () => {
             <div className="p-4 pb-0">
               <Input
                 value={editedNodeData.label}
-                onChange={(e) => handleNodeDataChange('label', e.target.value)}
-                className="mb-2"
+                onChange={(e) => handleNodeDataChange("label", e.target.value)}
+                className="mb-2 bg-input text-input-foreground"
                 placeholder="Node Label"
               />
               <Textarea
                 value={editedNodeData.description}
-                onChange={(e) => handleNodeDataChange('description', e.target.value)}
-                className="mb-2"
+                onChange={(e) =>
+                  handleNodeDataChange("description", e.target.value)
+                }
+                className="mb-2 bg-input text-input-foreground"
                 placeholder="Node Description"
               />
               <Textarea
                 value={editedNodeData.tips}
-                onChange={(e) => handleNodeDataChange('tips', e.target.value)}
-                className="mb-2"
+                onChange={(e) => handleNodeDataChange("tips", e.target.value)}
+                className="mb-2 bg-input text-input-foreground"
                 placeholder="Tips"
               />
               <Textarea
                 value={editedNodeData.usable_pentest_tools}
-                onChange={(e) => handleNodeDataChange('usable_pentest_tools', e.target.value)}
-                className="mb-2"
+                onChange={(e) =>
+                  handleNodeDataChange("usable_pentest_tools", e.target.value)
+                }
+                className="mb-2 bg-input text-input-foreground"
                 placeholder="Usable Pentest Tools"
               />
             </div>

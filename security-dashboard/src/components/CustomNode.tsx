@@ -14,10 +14,10 @@ interface CustomNodeData {
   onDelete?: (event: React.MouseEvent, nodeId: string) => void;
 }
 
-const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({ 
-  id, 
-  data, 
-  isConnectable, 
+const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
+  id,
+  data,
+  isConnectable,
   selected,
   ...rest
 }) => {

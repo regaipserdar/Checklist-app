@@ -4,7 +4,11 @@ import { useTheme } from "next-themes";
 import { Sun, Moon, Copy, Download, Github, Save } from "lucide-react";
 import UserProfileDropdown from './UserProfile';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onSave: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onSave }) => {
   const { theme, setTheme } = useTheme();
   const [selectedBranch, setSelectedBranch] = useState("master");
 
@@ -40,10 +44,11 @@ const Header: React.FC = () => {
         </div>
 
         {/* Save Button */}
-        <Button variant="outline" size="sm" className="text-foreground hover:text-foreground/80">
+        <Button onClick={onSave} variant="outline" size="sm">
           <Save className="w-4 h-4 mr-2" />
           Save
         </Button>
+
 
         {/* GitHub Push Button */}
         <Button variant="outline" size="sm" className="text-foreground hover:text-foreground/80">

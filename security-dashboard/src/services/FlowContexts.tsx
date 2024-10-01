@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getUserFlows, Flow } from './Pb-getFlowService';
+import pb from './Pb-getFlowService';
+import { Flow } from './Pb-getFlowService';
+import { useAuth } from '../context/AuthContext'; // Auth context'ini import edin
 
 // System Flow Context
 interface SystemFlowContextType {
@@ -24,8 +26,11 @@ export const SystemFlowProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     const fetchSystemFlows = async () => {
       try {
-        const flows = await getUserFlows();
-        setSystemFlows(flows.filter(flow => flow.isSystemFlow));
+        const flows = await pb.collection('flows').getFullList<Flow>({
+          sort: '-created',
+          filter: 'isSystemFlow = true'
+        });
+        setSystemFlows(flows);
       } catch (err) {
         setError('Failed to load system flows');
       } finally {
@@ -64,12 +69,22 @@ export const UserFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [userFlows, setUserFlows] = useState<Flow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth(); // Auth context'inden user bilgisini alın
 
   const fetchUserFlows = async () => {
+    if (!user) {
+      setUserFlows([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const flows = await getUserFlows();
-      setUserFlows(flows.filter(flow => !flow.isSystemFlow));
+      const flows = await pb.collection('flows').getFullList<Flow>({
+        sort: '-created',
+        filter: `creator = "${user.id}" && isSystemFlow = false`
+      });
+      setUserFlows(flows);
       setError(null);
     } catch (err) {
       setError('Failed to load user flows');
@@ -80,7 +95,7 @@ export const UserFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     fetchUserFlows();
-  }, []);
+  }, [user]);
 
   const refreshUserFlows = async () => {
     await fetchUserFlows();

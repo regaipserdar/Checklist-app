@@ -18,12 +18,12 @@ export const createUserFlowNode = (flow: Flow, position: { x: number, y: number 
   };
 };
 
-export const createNewFlow = async (userId: string): Promise<Flow> => {
+export const createNewFlow = async (userId: string, title: string, description: string): Promise<Flow> => {
   const newFlowData = {
-    title: 'New Flow',
+    title: title || 'New Flow',
     isSystemFlow: false,
     creator: userId,
-    description: '',
+    description: description || '',
     isShared: false,
   };
 
@@ -32,11 +32,11 @@ export const createNewFlow = async (userId: string): Promise<Flow> => {
   // RecordModel'i Flow tipine dönüştürüyoruz
   const newFlow: Flow = {
     id: record.id,
-    title: record.title as string || newFlowData.title,
-    description: record.description as string || newFlowData.description,
-    isSystemFlow: record.isSystemFlow as boolean || newFlowData.isSystemFlow,
-    isShared: record.isShared as boolean || newFlowData.isShared,
-    creator: record.creator as string || userId,
+    title: record.title as string,
+    description: record.description as string,
+    isSystemFlow: record.isSystemFlow as boolean,
+    isShared: record.isShared as boolean,
+    creator: record.creator as string,
   };
 
   return newFlow;
