@@ -43,16 +43,15 @@ import { createSystemFlowNodes } from '../../services/SystemFlow-Nodes';
 import { createUserFlowNode } from '../../services/UserFlowService';
 import { useAuth } from '../../context/AuthContext'; 
 import pb from '../../services/Pb-getFlowService';
+import { useSaveNodes } from '../../components/Layout';
 
 const Flow: React.FC = () => {
-  console.log('Flow component rendered');
-
   const { flowId: paramFlowId } = useParams<{ flowId?: string }>();
   const [flowId, setFlowId] = useState<string | null>(
     paramFlowId && paramFlowId !== 'new' ? paramFlowId : null
   );
-  console.log('Initial flowId:', flowId);
 
+  const { setSaveNodes } = useSaveNodes();
   const navigate = useNavigate();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -77,48 +76,38 @@ const Flow: React.FC = () => {
   const { userFlows } = useUserFlows();
   const { user } = useAuth();
 
-  console.log('Current user:', user);
-
   const createNewFlow = async (title: string, description: string) => {
-    console.log('Creating new flow');
+    if (!user) {
+      throw new Error('User is not authenticated');
+    }
     const newFlowData = {
       title,
       description,
-      creator: user?.id,
+      creator: user.id,
       isSystemFlow: false,
       isShared: true,
     };
-    console.log('New flow data:', newFlowData);
     const newFlow = await pb.collection('flows').create(newFlowData);
-    console.log('New flow created:', newFlow);
     return newFlow;
   };
 
   useEffect(() => {
-    console.log('useEffect triggered for flow loading');
     const loadFlow = async () => {
-      console.log('Loading flow, flowId:', flowId);
       setIsLoading(true);
       try {
         if (flowId && flowId !== 'new') {
-          console.log('Fetching existing flow');
           const record = await pb.collection('flows').getOne(flowId);
-          console.log('Fetched flow:', record);
-          
           setFlowTitle(record.title);
           setFlowDescription(record.description);
           await loadNodesAndEdges(flowId);
         } else if (!flowId || flowId === 'new') {
-          console.log('Opening new flow modal');
           setIsNewFlowModalOpen(true);
         }
       } catch (error) {
         console.error('Error loading flow:', error);
         if (error instanceof Error && (error as any).status === 404) {
-          console.log('Flow not found, opening new flow modal');
           setIsNewFlowModalOpen(true);
         } else {
-          console.error('Unexpected error:', error);
           setAlert({
             title: "Error",
             description: error instanceof Error ? error.message : 'Failed to load the flow. Please try again.',
@@ -134,29 +123,32 @@ const Flow: React.FC = () => {
   }, [flowId]);
 
   const loadNodesAndEdges = async (flowId: string) => {
-    console.log('Loading nodes and edges for flow:', flowId);
     try {
-      // Fetch nodes
       const nodes = await pb.collection('nodes').getFullList({
-        filter: `flows="${flowId}"`,
+        filter: `flow="${flowId}"`,
       });
-      console.log('Fetched nodes:', nodes);
       setNodes(nodes.map(node => ({
         id: node.id,
-        type: node.type,
+        type: 'customNode',
         position: JSON.parse(node.position),
-        data: JSON.parse(node.data),
+        data: {
+          ...JSON.parse(node.data),
+          nodeType: node.types,
+          pocketbaseId: node.id
+        },
       })));
 
-      // Fetch edges
       const edges = await pb.collection('edges').getFullList({
-        filter: `flows="${flowId}"`,
+        filter: `flow="${flowId}"`,
+        expand: 'source,target',
       });
-      console.log('Fetched edges:', edges);
       setEdges(edges.map(edge => ({
         id: edge.id,
-        source: edge.source,
-        target: edge.target,
+        source: edge.expand?.source?.id,
+        target: edge.expand?.target?.id,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle,
+        label: edge.label,
       })));
     } catch (error) {
       console.error('Error loading nodes and edges:', error);
@@ -169,7 +161,6 @@ const Flow: React.FC = () => {
   };
 
   const onConnect = useCallback((params: Connection | Edge) => {
-    console.log('Connecting nodes:', params);
     setEdges((eds) => addEdge(params, eds));
   }, [setEdges]);
 
@@ -179,53 +170,72 @@ const Flow: React.FC = () => {
   }, []);
 
   const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      console.log('Node dropped');
+    async (event: React.DragEvent) => {
       event.preventDefault();
-
+  
       if (!reactFlowWrapper.current) return;
-
+  
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      const type = event.dataTransfer.getData('application/reactflow');
-
+      const type = event.dataTransfer.getData("application/reactflow");
+  
       const position = screenToFlowPosition({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
       });
-      
+  
+      console.log('Dropped item type:', type);
+      console.log('Dropped position:', position);
+  
       try {
-        const parsedData = JSON.parse(type);
+        let parsedData;
+        try {
+          parsedData = JSON.parse(type);
+        } catch (error) {
+          console.log('Type is not JSON, using as string:', type);
+          parsedData = { type: type };
+        }
+  
         console.log('Parsed drop data:', parsedData);
-
-        if (parsedData.type === 'systemFlow') {
+  
+        if (parsedData.type === "systemFlow") {
           console.log('Dropping system flow');
-          const systemFlow = systemFlows.find(flow => flow.id === parsedData.flowId);
+          const systemFlow = systemFlows.find(
+            (flow) => flow.id === parsedData.flowId,
+          );
           if (systemFlow) {
-            const result = createSystemFlowNodes(systemFlow, position);
-            console.log("System flow nodes created:", result);
-            // TODO: Implement system flow node creation
+            const result = await createSystemFlowNodes(systemFlow, position);
+            console.log('Created system flow nodes:', result);
+            setNodes((nds) => [...nds, ...result.nodes]);
+            setEdges((eds) => [...eds, ...result.edges]);
+          } else {
+            console.log('System flow not found');
           }
-        } else if (parsedData.type === 'userFlow') {
+        } else if (parsedData.type === "userFlow") {
           console.log('Dropping user flow');
-          const userFlow = userFlows.find(flow => flow.id === parsedData.flowId);
+          const userFlow = userFlows.find(
+            (flow) => flow.id === parsedData.flowId,
+          );
           if (userFlow) {
             const newNode = createUserFlowNode(userFlow, position);
-            console.log('New user flow node:', newNode);
+            console.log('Created user flow node:', newNode);
             setNodes((nds) => [...nds, newNode]);
+          } else {
+            console.log('User flow not found');
           }
+        } else {
+          console.log('Dropping default node');
+          const newNode = createDefaultNode(parsedData.type, position);
+          console.log('Created default node:', newNode);
+          setNodes((nds) => [...nds, newNode]);
         }
       } catch (error) {
-        console.log('Dropping default node');
-        const newNode = createDefaultNode(type, position);
-        console.log('New default node:', newNode);
-        setNodes((nds) => [...nds, newNode]);
+        console.error("Error processing dropped item:", error);
       }
     },
     [screenToFlowPosition, setNodes, setEdges, systemFlows, userFlows]
   );
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    console.log('Node clicked:', node);
     setSelectedNode(node);
     setEditedNodeData({ 
       label: node.data.label, 
@@ -237,7 +247,6 @@ const Flow: React.FC = () => {
   }, []);
 
   const handleEdit = useCallback((node: Node) => {
-    console.log('Editing node:', node);
     setSelectedNode(node);
     setEditedNodeData({ 
       label: node.data.label, 
@@ -249,7 +258,6 @@ const Flow: React.FC = () => {
   }, []);
 
   const handleDelete = useCallback((nodeId: string) => {
-    console.log('Deleting node:', nodeId);
     setNodes((nds) => nds.filter((node) => node.id !== nodeId));
     setSelectedNode(null);
     setIsDrawerOpen(false);
@@ -261,12 +269,10 @@ const Flow: React.FC = () => {
   }, [setNodes]);
 
   const handleNodeDataChange = useCallback((field: keyof typeof editedNodeData, value: string) => {
-    console.log('Node data changed:', field, value);
     setEditedNodeData(prev => ({ ...prev, [field]: value }));
   }, []);
 
   const handleSaveNodeData = useCallback(() => {
-    console.log('Saving node data');
     if (selectedNode) {
       setNodes((nds) =>
         nds.map((node) =>
@@ -290,9 +296,136 @@ const Flow: React.FC = () => {
     }
   }, [selectedNode, editedNodeData, setNodes]);
 
+  const saveNodesAndEdges = useCallback(async () => {
+    if (!flowId) {
+      console.error('Flow ID is missing. Cannot save nodes and edges.');
+      setAlert({
+        title: "Error",
+        description: "Flow ID is missing. Cannot save nodes and edges.",
+        variant: "destructive"
+      });
+      return;
+    }
+  
+    try {
+      // Save nodes
+      const savedNodes = await Promise.all(nodes.map(async (node) => {
+        const nodeData = {
+          title: node.data.label || '',
+          description: node.data.description || '',
+          tips: node.data.tips || '',
+          flow: flowId,
+          position: JSON.stringify(node.position),
+          types: node.data.nodeType || 'normal',
+          inputCount: node.data.inputCount || 0,
+          outputCount: node.data.outputCount || 0,
+          usable_pentest_tools: node.data.usable_pentest_tools || '',
+        };
+  
+        console.log('Attempting to save node:', nodeData);
+  
+        if (!node.data.pocketbaseId) {
+          try {
+            const savedNode = await pb.collection('nodes').create(nodeData);
+            console.log('Successfully created new node:', savedNode);
+            return { ...node, data: { ...node.data, pocketbaseId: savedNode.id } };
+          } catch (error) {
+            console.error('Error creating new node:', error);
+            throw error;
+          }
+        } else {
+          try {
+            const updatedNode = await pb.collection('nodes').update(node.data.pocketbaseId, nodeData);
+            console.log('Successfully updated node:', updatedNode);
+            return node;
+          } catch (error) {
+            console.error('Error updating node:', error);
+            throw error;
+          }
+        }
+      }));
+  
+      setNodes(savedNodes);
+  
+      // Save edges
+      const existingEdges = await pb.collection('edges').getFullList({
+        filter: `flow="${flowId}"`,
+      });
+  
+      const savedEdges = await Promise.all(edges.map(async (edge) => {
+        const edgeData = {
+          flow: flowId,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          targetHandle: edge.targetHandle,
+          label: edge.label || '',
+        };
+  
+        console.log('Attempting to save edge:', edgeData);
+  
+        const existingEdge = existingEdges.find(e => e.id === edge.id);
+        if (existingEdge) {
+          try {
+            const updatedEdge = await pb.collection('edges').update(edge.id, edgeData);
+            console.log('Successfully updated edge:', updatedEdge);
+            return updatedEdge;
+          } catch (error) {
+            console.error('Error updating edge:', error);
+            throw error;
+          }
+        } else {
+          try {
+            const newEdge = await pb.collection('edges').create(edgeData);
+            console.log('Successfully created new edge:', newEdge);
+            return newEdge;
+          } catch (error) {
+            console.error('Error creating new edge:', error);
+            throw error;
+          }
+        }
+      }));
+  
+      // Delete edges that no longer exist
+      await Promise.all(existingEdges.map(async (existingEdge) => {
+        if (!edges.some(e => e.id === existingEdge.id)) {
+          try {
+            await pb.collection('edges').delete(existingEdge.id);
+            console.log('Successfully deleted edge:', existingEdge.id);
+          } catch (error) {
+            console.error('Error deleting edge:', error);
+            throw error;
+          }
+        }
+      }));
+  
+      setAlert({
+        title: "Success",
+        description: "Nodes and edges saved successfully.",
+      });
+  
+    } catch (error) {
+      console.error('Error saving nodes and edges:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
+      if ((error as any).data) {
+        console.error('API error details:', (error as any).data);
+      }
+      setAlert({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to save nodes and edges. Please try again.',
+        variant: "destructive"
+      });
+    }
+  }, [flowId, nodes, edges, setNodes]);
+
+  useEffect(() => {
+    setSaveNodes(() => saveNodesAndEdges);
+  }, [setSaveNodes, saveNodesAndEdges]);
+
   const handleSave = async () => {
-    console.log('Saving flow');
-    if (!user || !user.id) {
+    if (!user) {
       console.error('No user logged in');
       setAlert({
         title: "Error",
@@ -306,13 +439,10 @@ const Flow: React.FC = () => {
       const flowData = {
         title: flowTitle,
         description: flowDescription,
-        nodes: nodes,
-        edges: edges,
         creator: user.id,
         isSystemFlow: false,
         isShared: true,
       };
-      console.log('Flow data to save:', flowData);
 
       let savedFlow;
       if (flowId) {
@@ -320,13 +450,13 @@ const Flow: React.FC = () => {
       } else {
         savedFlow = await pb.collection('flows').create(flowData);
       }
-      console.log('Saved flow:', savedFlow);
 
       setFlowId(savedFlow.id);
       if (!flowId) {
-        console.log('Navigating to saved flow');
         navigate(`/flows/${savedFlow.id}`, { replace: true });
       }
+
+      await saveNodesAndEdges();
 
       setAlert({
         title: "Success",
@@ -344,10 +474,8 @@ const Flow: React.FC = () => {
   };
 
   const handleCreateNewFlow = async () => {
-    console.log('Creating new flow');
     try {
       const newFlow = await createNewFlow(flowTitle, flowDescription);
-      console.log('New flow created:', newFlow);
       setFlowId(newFlow.id);
       setIsNewFlowModalOpen(false);
       navigate(`/flows/${newFlow.id}`, { replace: true });
@@ -366,7 +494,6 @@ const Flow: React.FC = () => {
   };
 
   const handleBackToDashboard = () => {
-    console.log('Navigating back to dashboard');
     navigate('/');
   };
 
@@ -383,7 +510,6 @@ const Flow: React.FC = () => {
     ),
   }), [handleEdit, handleDelete]);
 
-  console.log('Rendering Flow component');
   return (
     <div className="h-full w-full flex flex-col">
       {alert && (
@@ -407,6 +533,7 @@ const Flow: React.FC = () => {
                   <DialogHeader>
                     <DialogTitle>Edit Flow</DialogTitle>
                     <DialogDescription>
+                      Make changes to your flow here.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="py-4">
@@ -522,7 +649,6 @@ const Flow: React.FC = () => {
     </div>
   );
 };
-
 
 export default () => (
   <ReactFlowProvider>

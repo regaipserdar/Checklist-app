@@ -131,6 +131,19 @@ export const saveFlow = async (flowData: any, flowId?: string) => {
   }
 };
 
+
+export const createNode = async (nodeData: any) => {
+  console.log('Creating new node:', nodeData);
+  try {
+    const record = await pb.collection('nodes').create(nodeData);
+    console.log('Successfully created node:', record);
+    return record;
+  } catch (error) {
+    console.error('Error creating node:', error);
+    throw error;
+  }
+};
+
 // Edge'leri kaydetmek için örnek fonksiyon (ihtiyaca göre kullanılabilir)
 // const saveEdges = async (flowId: string, edges: any[]) => {
 //   console.log(`Saving edges for flow ${flowId}`);

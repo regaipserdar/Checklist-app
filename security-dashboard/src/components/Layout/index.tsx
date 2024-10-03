@@ -1,24 +1,37 @@
-// src/components/Layout/index.tsx
-
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useCallback } from 'react';
+import { Outlet, useOutletContext } from 'react-router-dom';
 import Sidebar from '../Sidebar';
 import Header from '../Header';
 import Footer from '../Footer';
 
+type ContextType = { 
+  setSaveNodes: (fn: () => void) => void
+};
+
 const Layout: React.FC = () => {
-  const handleSave = () => {
-    // Save işlemi burada gerçekleştirilecek
-    console.log('Saving...');
-  };
+  const [saveNodesFunction, setSaveNodesFunction] = useState<(() => void) | null>(null);
   
+  const handleSave = useCallback(() => {
+    console.log('Save button clicked');
+    if (saveNodesFunction) {
+      saveNodesFunction();
+    } else {
+      console.warn('saveNodes function is not set');
+    }
+  }, [saveNodesFunction]);
+  
+  const setSaveNodes = useCallback((fn: () => void) => {
+    console.log('Setting saveNodes function');
+    setSaveNodesFunction(() => fn);
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
-      <Header onSave={handleSave} />
+        <Header onSave={handleSave} />
         <main className="flex-1 overflow-auto bg-background p-4">
-          <Outlet />
+          <Outlet context={{ setSaveNodes }} />
         </main>
         <Footer />
       </div>
@@ -27,3 +40,7 @@ const Layout: React.FC = () => {
 };
 
 export default Layout;
+
+export function useSaveNodes() {
+  return useOutletContext<ContextType>();
+}
