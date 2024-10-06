@@ -10,7 +10,9 @@ type ContextType = {
 
 const Layout: React.FC = () => {
   const [saveNodesFunction, setSaveNodesFunction] = useState<(() => void) | null>(null);
-  
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
   const handleSave = useCallback(() => {
     console.log('Save button clicked');
     if (saveNodesFunction) {
@@ -25,15 +27,30 @@ const Layout: React.FC = () => {
     setSaveNodesFunction(() => fn);
   }, []);
 
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarExpanded(prev => !prev);
+  }, []);
+
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Header onSave={handleSave} />
-        <main className="flex-1 overflow-auto bg-background p-4">
-          <Outlet context={{ setSaveNodes }} />
-        </main>
-        <Footer />
+    <div className="flex flex-col h-screen overflow-hidden">
+      <Header 
+        onSave={handleSave} 
+        onToggleSidebar={toggleSidebar}
+        isSidebarExpanded={isSidebarExpanded}
+        onSearch={handleSearch}
+      />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar isExpanded={isSidebarExpanded} searchTerm={searchTerm} />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <main className="flex-1 overflow-auto bg-background p-4">
+            <Outlet context={{ setSaveNodes }} />
+          </main>
+          <Footer />
+        </div>
       </div>
     </div>
   );

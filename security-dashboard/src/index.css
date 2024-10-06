@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -60,18 +59,6 @@
   }
 }
 
-
-@layer base {
-  html, body, #root {
-    @apply h-full w-full m-0 p-0 overflow-hidden;
-  }
-}
-
-#root {
-  @apply flex flex-col;
-}
-
-/* Annotation ile ilgili stiller kaldırıldı */
 @layer base {
   html, body, #root {
     @apply h-full w-full m-0 p-0 overflow-hidden;
@@ -114,22 +101,6 @@
   @apply bg-yellow-200 border-yellow-400;
 }
 
-.sticky-note {
-  @apply bg-yellow-100 border-yellow-300;
-}
-
-.react-flow__edge-path {
-  @apply stroke-2 stroke-gray-400;
-}
-
-.react-flow__edge:hover .react-flow__edge-path {
-  @apply stroke-gray-600;
-}
-
-.react-flow__node-customNode {
-  @apply select-none;
-}
-
 .react-flow__edge-path {
   @apply stroke-2 stroke-gray-400 transition-all duration-300 ease-in-out;
 }
@@ -138,7 +109,6 @@
   @apply stroke-gray-600 stroke-[3px];
 }
 
-/* Edge animasyonu için */
 @keyframes dashedLine {
   to {
     stroke-dashoffset: -20;
@@ -149,24 +119,6 @@
   animation: dashedLine 1s linear infinite;
   stroke-dasharray: 5, 5;
 }
-
-@keyframes selectedNodePulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(255, 153, 225, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(255, 153, 225, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 153, 225, 0);
-  }
-}
-
-.react-flow__node.selected {
-  animation: selectedNodePulse 2s infinite;
-}
-
-
 
 .sticky-note {
   width: 200px;
@@ -240,4 +192,39 @@
 
 .sticky-note.selected {
   box-shadow: 0 0 0 2px #4299e1, 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.react-flow__node.selected::after,
+.react-flow__node.selected::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: conic-gradient(from var(--angle), #ff4545, #00ff99, #006aff, #ff0095, #ff4545);
+  border-radius: 8px;
+  z-index: -1;
+  animation: rotate 3s linear infinite;
+}
+
+.react-flow__node.selected::before {
+  filter: blur(1.5rem);
+  opacity: 0.5;
+}
+
+@keyframes rotate {
+  from {
+    --angle: 0deg;
+  }
+  to {
+    --angle: 360deg;
+  }
+}
+
+.react-flow__node.selected {
+  z-index: 5;
 }

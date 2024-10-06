@@ -52,7 +52,7 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
 
   const nodeStyle = {
     background: getBackgroundColor(data.type),
-    border: `2px solid ${getBorderColor(data.type)}`,
+    border: `.5px solid ${getBorderColor(data.type)}`,
     padding: '10px',
     borderRadius: '5px',
     minWidth: '200px',

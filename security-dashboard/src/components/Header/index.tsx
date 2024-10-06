@@ -1,25 +1,61 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Copy, Download, Github, Save } from "lucide-react";
+import { Sun, Moon, Copy, Download, Github, Save, ChevronLeft, ChevronRight, Hexagon } from "lucide-react";
 import UserProfileDropdown from './UserProfile';
 
 interface HeaderProps {
   onSave: () => void;
+  onToggleSidebar: () => void;
+  isSidebarExpanded: boolean;
+  onSearch: (term: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onSave }) => {
+const Header: React.FC<HeaderProps> = ({ onSave, onToggleSidebar, isSidebarExpanded, onSearch }) => {
   const { theme, setTheme } = useTheme();
   const [selectedBranch, setSelectedBranch] = useState("master");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const branches = ["master", "main", "dev"]; // Dummy branch data
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    onSearch(e.target.value);
+  };
+
   return (
     <header className="bg-background text-foreground p-4 flex justify-between items-center border-b border-border">
-      {/* Left Section - GitHub Icon and Repo */}
+      {/* Left Section - Sidebar Toggle, Pentest Checklist Logo, and Search */}
       <div className="flex items-center space-x-4">
-        <Github className="w-6 h-6" />
-        <span className="text-muted-foreground font-semibold">MyAwesomeRepo</span>
+        <div className="flex items-center space-x-2">
+          <div className="bg-primary rounded-full p-2">
+            <Hexagon className="h-6 w-6 text-primary-foreground" />
+          </div>
+          {isSidebarExpanded && (
+            <span className="text-xl font-bold">Pentest Checklist</span>
+          )}
+        </div>
+        <Button
+          onClick={onToggleSidebar}
+          variant="ghost"
+          size="icon"
+          className="text-foreground hover:text-foreground/80"
+          title={isSidebarExpanded ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {isSidebarExpanded ? (
+            <ChevronLeft className="h-5 w-5" />
+          ) : (
+            <ChevronRight className="h-5 w-5" />
+          )}
+        </Button>
+        <Input
+          type="search"
+          placeholder="Search..."
+          value={searchTerm}
+          onChange={handleSearchChange}
+          className="w-64"
+        />
       </div>
       
       {/* Center Section - Branch Selection and Action Buttons */}
@@ -49,7 +85,6 @@ const Header: React.FC<HeaderProps> = ({ onSave }) => {
           Save
         </Button>
 
-
         {/* GitHub Push Button */}
         <Button variant="outline" size="sm" className="text-foreground hover:text-foreground/80">
           <Github className="w-4 h-4 mr-2" />
@@ -68,7 +103,6 @@ const Header: React.FC<HeaderProps> = ({ onSave }) => {
         >
           <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
         </Button>
 
         {/* Copy Button */}
