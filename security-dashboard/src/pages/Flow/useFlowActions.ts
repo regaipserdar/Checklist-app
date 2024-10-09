@@ -7,12 +7,14 @@ import { createSystemFlowNodes } from '../../services/SystemFlow-Nodes';
 import { createDefaultNode } from '../../services/DefaultNodesService';
 import { getUserFlows, getFlowDetails, refreshUserFlows, refreshFlowDetails } from '../../services/UserFlowService';
 import { saveService } from '../../services/SaveService';
+import { useToast } from "@/hooks/use-toast";
 
 export const useFlowActions = (state: ReturnType<typeof import('./useFlowState').useFlowState>) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const loadingRef = useRef(false);
   const renderCountRef = useRef(0);
+  const { toast } = useToast();
 
   useEffect(() => {
     renderCountRef.current += 1;
@@ -56,7 +58,11 @@ export const useFlowActions = (state: ReturnType<typeof import('./useFlowState')
         state.setFlowId(flowDetails.id);
         state.setFlowTitle(flowDetails.title);
         state.setFlowDescription(flowDetails.description);
+        
+        console.log('[useFlowActions] Setting nodes:', flowDetails.nodes);
         state.setNodes(flowDetails.nodes);
+        
+        console.log('[useFlowActions] Setting edges:', flowDetails.edges);
         state.setEdges(flowDetails.edges);
         
       } else if (user) {
@@ -269,7 +275,7 @@ export const useFlowActions = (state: ReturnType<typeof import('./useFlowState')
       });
   
       console.log('[useFlowActions] Calling saveChanges in SaveService');
-      const result = await saveService.saveChanges();
+      const result = await saveService.saveChanges(toast);  // toast fonksiyonunu argüman olarak geçirin
       console.log('[useFlowActions] Flow saved with result:', result);
   
       if (result) {
@@ -298,7 +304,7 @@ export const useFlowActions = (state: ReturnType<typeof import('./useFlowState')
         variant: "destructive"
       });
     }
-  }, [state, user, navigate]);
+  }, [state, user, navigate, toast]);
 
 
 

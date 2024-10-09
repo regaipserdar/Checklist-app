@@ -32,6 +32,7 @@ const Flow: React.FC = React.memo(() => {
   const setSaveNodesCallback = useCallback(() => {
     console.log('[Flow] Save function triggered');
     if (user) {
+      console.log('[Flow] User logged in, setting pending changes');
       saveService.setPendingChanges({
         flowId: state.flowId,
         flowTitle: state.flowTitle,
@@ -52,6 +53,7 @@ const Flow: React.FC = React.memo(() => {
 
   useEffect(() => {
     if (isInitialMount.current) {
+      console.log('[Flow] Initial mount, skipping loadFlow');
       isInitialMount.current = false;
       return;
     }
@@ -60,6 +62,12 @@ const Flow: React.FC = React.memo(() => {
     if (flowId && !actions.isLoading && state.nodes.length === 0) {
       console.log('[Flow] Calling loadFlow with flowId:', flowId);
       actions.loadFlow(flowId);
+    } else {
+      console.log('[Flow] Conditions not met for loadFlow:',
+        'flowId:', !!flowId,
+        'not loading:', !actions.isLoading,
+        'nodes empty:', state.nodes.length === 0
+      );
     }
   }, [flowId, actions.loadFlow, actions.isLoading, state.nodes.length]);
 
@@ -68,24 +76,28 @@ const Flow: React.FC = React.memo(() => {
     state.reactFlowInstanceRef.current = instance;
   }, [state.reactFlowInstanceRef]);
 
-  const memoizedFlowCanvas = useMemo(() => (
-    <FlowCanvas 
-      nodes={state.nodes}
-      edges={state.edges}
-      onNodesChange={state.onNodesChange}
-      onEdgesChange={state.onEdgesChange}
-      onConnect={actions.onConnect}
-      onDrop={actions.onDrop}
-      onDragOver={actions.onDragOver}
-      onNodeClick={actions.onNodeClick}
-      reactFlowWrapper={state.reactFlowWrapper}
-      onInit={onInit}
-    />
-  ), [state.nodes, state.edges, state.onNodesChange, state.onEdgesChange, actions, onInit, state.reactFlowWrapper]);
+  const memoizedFlowCanvas = useMemo(() => {
+    console.log('[Flow] Memoizing FlowCanvas');
+    return (
+      <FlowCanvas 
+        nodes={state.nodes}
+        edges={state.edges}
+        onNodesChange={state.onNodesChange}
+        onEdgesChange={state.onEdgesChange}
+        onConnect={actions.onConnect}
+        onDrop={actions.onDrop}
+        onDragOver={actions.onDragOver}
+        onNodeClick={actions.onNodeClick}
+        reactFlowWrapper={state.reactFlowWrapper}
+        onInit={onInit}
+      />
+    );
+  }, [state.nodes, state.edges, state.onNodesChange, state.onEdgesChange, actions, onInit, state.reactFlowWrapper]);
 
   console.log('[Flow] Rendering Flow component');
 
   if (actions.isLoading) {
+    console.log('[Flow] Rendering loading state');
     return (
       <div className="loader-container">
         <div className="loader"></div>
@@ -114,20 +126,28 @@ const Flow: React.FC = React.memo(() => {
       </div>
       <NodeDrawer 
         isOpen={state.isDrawerOpen}
-        onClose={() => state.setIsDrawerOpen(false)}
+        onClose={() => {
+          console.log('[Flow] Closing node drawer');
+          state.setIsDrawerOpen(false);
+        }}
         node={state.selectedNode}
         onSave={actions.handleSaveNodeData}
       />
       <FlowDialog 
         isOpen={state.isFlowModalOpen}
-        onClose={() => state.setIsFlowModalOpen(false)}
+        onClose={() => {
+          console.log('[Flow] Closing flow modal');
+          state.setIsFlowModalOpen(false);
+        }}
         title={state.flowTitle}
         description={state.flowDescription}
         onSave={() => {
+          console.log('[Flow] Saving flow and triggering save');
           actions.handleSave();
           triggerSave();
         }}
         onChange={(field, value) => {
+          console.log(`[Flow] Changing ${field} to:`, value);
           if (field === 'title') state.setFlowTitle(value);
           if (field === 'description') state.setFlowDescription(value);
         }}

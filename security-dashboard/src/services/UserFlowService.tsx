@@ -1,4 +1,4 @@
-import { Node, Edge } from 'reactflow';
+import { Node, Edge, XYPosition } from 'reactflow';
 import pb from './Pb-getFlowService';
 import { CacheService } from './CacheService';
 
@@ -12,7 +12,7 @@ export interface Flow {
 }
 
 export const createUserFlowNode = (flow: Flow, position: { x: number, y: number }): Node => {
-  console.log('Creating user flow node:', flow);
+  console.log('[createUserFlowNode] Creating user flow node:', flow);
   return {
     id: `userFlow_${flow.id}`,
     type: 'customNode',
@@ -26,7 +26,7 @@ export const createUserFlowNode = (flow: Flow, position: { x: number, y: number 
 };
 
 export const createNewFlow = async (userId: string, title: string, description: string): Promise<Flow> => {
-  console.log('Creating new flow for user:', userId);
+  console.log('[createNewFlow] Creating new flow for user:', userId);
   const newFlowData = {
     title: title ? title : `${userId}_flow_${Date.now()}`,
     isSystemFlow: false,
@@ -37,7 +37,7 @@ export const createNewFlow = async (userId: string, title: string, description: 
 
   try {
     const record = await pb.collection('flows').create(newFlowData);
-    console.log('New flow created:', record);
+    console.log('[createNewFlow] New flow created:', record);
 
     const newFlow: Flow = {
       id: record.id,
@@ -50,7 +50,7 @@ export const createNewFlow = async (userId: string, title: string, description: 
 
     return newFlow;
   } catch (error) {
-    console.error('Error creating new flow:', error);
+    console.error('[createNewFlow] Error creating new flow:', error);
     throw error;
   }
 };
@@ -90,6 +90,7 @@ export const getUserFlows = async (userId: string): Promise<Flow[]> => {
   }
 };
 
+
 export const getFlowDetails = async (flowId: string): Promise<{
   id: string;
   title: string;
@@ -107,7 +108,7 @@ export const getFlowDetails = async (flowId: string): Promise<{
   const cachedDetails = CacheService.get<ReturnType<typeof getFlowDetails>>(cacheKey);
 
   if (cachedDetails) {
-    console.log(`[${functionName}] Returning cached details for flowId: ${flowId}`);
+    console.log(`[${functionName}] Returning cached details for flowId: ${flowId}`, cachedDetails);
     return cachedDetails;
   }
 
@@ -117,29 +118,34 @@ export const getFlowDetails = async (flowId: string): Promise<{
     
     console.log(`[${functionName}] Fetching nodes data for flowId: ${flowId}`);
     const nodesData = await pb.collection('nodes').getFullList({
-      filter: `flow="${flowId}"`,
+      filter: `flow~'${flowId}'`,
     });
+    console.log(`[${functionName}] Raw nodes data:`, nodesData);
 
     console.log(`[${functionName}] Fetching edges data for flowId: ${flowId}`);
     const edgesData = await pb.collection('edges').getFullList({
-      filter: `flow="${flowId}"`,
+      filter: `flow~"${flowId}"`,
     });
 
     console.log(`[${functionName}] Processing nodes data for flowId: ${flowId}`);
-    const nodes: Node[] = nodesData.map((node: any) => ({
-      id: node.id,
-      type: 'customNode',
-      position: JSON.parse(node.position),
-      data: {
-        label: node.title,
-        description: node.description,
-        tips: node.tips,
-        type: node.types,
-        inputCount: node.inputCount,
-        outputCount: node.outputCount,
-        usable_pentest_tools: node.usable_pentest_tools,
-      },
-    }));
+    const nodes: Node[] = nodesData.map((node: any) => {
+      console.log(`[${functionName}] Processing node:`, node);
+      return {
+        id: node.id,
+        type: 'customNode',
+        position: typeof node.position === 'string' ? JSON.parse(node.position) : node.position,
+        data: {
+          label: node.title,
+          description: node.description,
+          tips: node.tips,
+          type: node.types,
+          inputCount: node.inputCount,
+          outputCount: node.outputCount,
+          usable_pentest_tools: node.usable_pentest_tools,
+        },
+      };
+    });
+    console.log(`[${functionName}] Processed nodes:`, nodes);
 
     console.log(`[${functionName}] Processing edges data for flowId: ${flowId}`);
     const edges: Edge[] = edgesData.map((edge: any) => ({
@@ -161,6 +167,8 @@ export const getFlowDetails = async (flowId: string): Promise<{
       nodes,
       edges,
     };
+
+    console.log(`[${functionName}] Final result:`, result);
 
     console.log(`[${functionName}] Caching the result for flowId: ${flowId}`);
     CacheService.set(cacheKey, result);
@@ -189,4 +197,55 @@ export const refreshFlowDetails = async (flowId: string): Promise<{ nodes: Node[
 
   console.log(`[refreshFlowDetails] Refreshing flow details for flowId: ${flowId}`);
   return getFlowDetails(flowId);
+};
+
+export const createUserFlowNodes = async (flow: Flow): Promise<{ nodes: Node[], edges: Edge[] }> => {
+  console.log('[createUserFlowNodes] Creating user flow nodes for flow:', flow);
+
+  try {
+    const flowDetails = await getFlowDetails(flow.id);
+    const { nodes, edges } = flowDetails;
+
+    console.log('[createUserFlowNodes] Flow details fetched. Adjusting nodes.');
+    const adjustedNodes = nodes.map((node) => ({
+      ...node,
+      position: node.position as XYPosition, // Position is already in the correct format
+      data: {
+        ...node.data,
+        flowId: flow.id,
+      }
+    }));
+
+    console.log('[createUserFlowNodes] Nodes adjusted:', adjustedNodes);
+    console.log('[createUserFlowNodes] Edges:', edges);
+
+    return { nodes: adjustedNodes, edges };
+  } catch (error) {
+    console.error('[createUserFlowNodes] Error creating user flow nodes:', error);
+    throw error;
+  }
+};
+
+export const loadUserFlow = async (flowId: string): Promise<{ nodes: Node[], edges: Edge[] }> => {
+  console.log(`[loadUserFlow] Loading user flow: ${flowId}`);
+  try {
+    console.log(`[loadUserFlow] Fetching flow record from PocketBase for flowId: ${flowId}`);
+    const flowRecord = await pb.collection('flows').getOne<Flow>(flowId);
+    
+    console.log(`[loadUserFlow] Flow record fetched:`, flowRecord);
+    const flow: Flow = {
+      id: flowRecord.id,
+      title: flowRecord.title,
+      isSystemFlow: flowRecord.isSystemFlow,
+      description: flowRecord.description,
+      creator: flowRecord.creator,
+      isShared: flowRecord.isShared,
+    };
+    
+    console.log(`[loadUserFlow] Calling createUserFlowNodes with flow:`, flow);
+    return await createUserFlowNodes(flow);
+  } catch (error) {
+    console.error('[loadUserFlow] Error loading user flow:', error);
+    throw error;
+  }
 };
