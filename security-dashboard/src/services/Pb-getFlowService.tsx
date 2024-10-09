@@ -11,7 +11,7 @@ export interface Flow {
   description: string;
   isSystemFlow: boolean;
   isShared: boolean;
-  creator: string;
+  creator: string[];
 }
 
 export const getUserFlows = async (): Promise<Flow[]> => {

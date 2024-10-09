@@ -1,6 +1,6 @@
 // useFlowState.ts
 import { useState, useRef, MutableRefObject } from 'react';
-import { useNodesState, useEdgesState, useReactFlow, ReactFlowInstance } from 'reactflow';
+import { useNodesState, useEdgesState, ReactFlowInstance } from 'reactflow';
 import { useParams } from 'react-router-dom';
 
 export interface FlowState {
@@ -46,8 +46,9 @@ interface AlertState {
   variant: 'default' | 'destructive';
 }
 
-export const useFlowState = (): FlowState => {
+export const useFlowState = () => {
   const { flowId: paramFlowId } = useParams<{ flowId?: string }>();
+  const [saveNodesFunction, setSaveNodesFunction] = useState<(() => void) | null>(null);
   const [flowId, setFlowId] = useState<string | null>(paramFlowId && paramFlowId !== 'new' ? paramFlowId : null);
   const reactFlowWrapper = useRef<HTMLDivElement | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -60,12 +61,10 @@ export const useFlowState = (): FlowState => {
   const [isNewFlowModalOpen, setIsNewFlowModalOpen] = useState(false);
   const [alert, setAlert] = useState<AlertState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [saveNodesFunction, setSaveNodesFunction] = useState<(() => void) | null>(null);
   const [editedNodeData, setEditedNodeData] = useState({ label: '', description: '', tips: '', usable_pentest_tools: '' });
   const [systemFlows, setSystemFlows] = useState<any[]>([]);
   const [userFlows, setUserFlows] = useState<any[]>([]);
-
-  const reactFlowInstance = useReactFlow();
+  const reactFlowInstanceRef = useRef<ReactFlowInstance | null>(null);
 
   return {
     flowId,
@@ -97,7 +96,7 @@ export const useFlowState = (): FlowState => {
     setIsLoading,
     editedNodeData,
     setEditedNodeData,
-    reactFlowInstance,
+    reactFlowInstanceRef,
     systemFlows,
     setSystemFlows,
     userFlows,

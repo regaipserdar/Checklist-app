@@ -12,6 +12,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { useToast } from "@/hooks/use-toast";
 
 interface NodeDrawerProps {
   isOpen: boolean;
@@ -21,11 +22,17 @@ interface NodeDrawerProps {
 }
 
 const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }) => {
+  const { toast } = useToast();
   const [editedData, setEditedData] = useState({
     label: '',
     description: '',
     tips: '',
     usable_pentest_tools: '',
+  });
+  const [errors, setErrors] = useState({
+    label: '',
+    description: '',
+    tips: '',
   });
 
   useEffect(() => {
@@ -41,11 +48,40 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
 
   const handleChange = (field: string, value: string) => {
     setEditedData(prev => ({ ...prev, [field]: value }));
+
+    if (['label', 'description', 'tips'].includes(field) && value.trim() === '') {
+      setErrors(prev => ({ ...prev, [field]: `${field} is required.` }));
+    } else {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   const handleSave = () => {
+    const requiredFields = ['label', 'description', 'tips'];
+    let hasErrors = false;
+
+    requiredFields.forEach(field => {
+      if (editedData[field as keyof typeof editedData].trim() === '') {
+        setErrors(prev => ({ ...prev, [field]: `${field} is required.` }));
+        hasErrors = true;
+      }
+    });
+
+    if (hasErrors) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     onSave(editedData);
     onClose();
+    toast({
+      title: "Success",
+      description: "Node updated successfully.",
+    });
   };
 
   if (!node) return null;
@@ -65,18 +101,24 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
               className="mb-2"
               placeholder="Node Label"
             />
+            {errors.label && <p className="text-red-500 text-sm">{errors.label}</p>}
+            
             <Textarea
               value={editedData.description}
               onChange={(e) => handleChange('description', e.target.value)}
               className="mb-2"
               placeholder="Node Description"
             />
+            {errors.description && <p className="text-red-500 text-sm">{errors.description}</p>}
+
             <Textarea
               value={editedData.tips}
               onChange={(e) => handleChange('tips', e.target.value)}
               className="mb-2"
               placeholder="Tips"
             />
+            {errors.tips && <p className="text-red-500 text-sm">{errors.tips}</p>}
+
             <Textarea
               value={editedData.usable_pentest_tools}
               onChange={(e) => handleChange('usable_pentest_tools', e.target.value)}

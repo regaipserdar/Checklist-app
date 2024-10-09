@@ -5,6 +5,7 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './context/AuthContext';
 import { SystemFlowProvider, UserFlowProvider } from './services/FlowContexts';
 import routes from './routes';
+import { Toaster } from "@/components/ui/toaster"
 
 const AppRoutes = () => {
   const element = useRoutes(routes);
@@ -30,6 +31,7 @@ const App: React.FC = () => {
               <div className="min-h-screen w-full flex flex-col bg-background text-foreground">
                 <Router>
                   <AppRoutes />
+                  <Toaster />
                 </Router>
               </div>
             </UserFlowProvider>
