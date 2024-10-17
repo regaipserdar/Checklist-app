@@ -9,17 +9,19 @@ import FlowDialog from './FlowDialog';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSaveNodes } from '../../components/Layout';
 import { useParams } from 'react-router-dom';
-import { saveService } from '../../services/SaveService';
+import { useSaveService } from '../../services/SaveService';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from "@/hooks/use-toast"
 import '../../index.css';
 
 const Flow: React.FC = React.memo(() => {
   const { flowId } = useParams<{ flowId: string }>();
   const state = useFlowState();
   const actions = useFlowActions(state);
-  const { setSaveNodes, triggerSave } = useSaveNodes();
+  const { setSaveNodes } = useSaveNodes();
   const { user } = useAuth();
-
+  const { toast } = useToast();
+  const { saveChanges } = useSaveService();
   const renderCountRef = useRef(0);
   const isInitialMount = useRef(true);
 
@@ -29,27 +31,7 @@ const Flow: React.FC = React.memo(() => {
     return () => console.log('[Flow] Component unmounted');
   });
 
-  const setSaveNodesCallback = useCallback(() => {
-    console.log('[Flow] Save function triggered');
-    if (user) {
-      console.log('[Flow] User logged in, setting pending changes');
-      saveService.setPendingChanges({
-        flowId: state.flowId,
-        flowTitle: state.flowTitle,
-        flowDescription: state.flowDescription,
-        nodes: state.nodes,
-        edges: state.edges,
-        userId: user.id,
-      });
-    } else {
-      console.error('[Flow] No user logged in');
-    }
-  }, [state.flowId, state.flowTitle, state.flowDescription, state.nodes, state.edges, user]);
 
-  useEffect(() => {
-    console.log('[Flow] Setting up save function');
-    setSaveNodes(setSaveNodesCallback);
-  }, [setSaveNodes, setSaveNodesCallback]);
 
   useEffect(() => {
     if (isInitialMount.current) {
@@ -75,6 +57,59 @@ const Flow: React.FC = React.memo(() => {
     console.log('[Flow] ReactFlow instance initialized');
     state.reactFlowInstanceRef.current = instance;
   }, [state.reactFlowInstanceRef]);
+ 
+  //Handle SAve
+  const handleSave = useCallback(async () => {
+    console.log('[Flow] Saving flow');
+    if (!user) {
+      console.error('[Flow] No user logged in');
+      toast({
+        title: "Error",
+        description: "You must be logged in to save a flow.",
+        variant: "destructive"
+      });
+      return;
+    }
+  
+    const changes = {
+      flowId: state.flowId,
+      flowTitle: state.flowTitle,
+      flowDescription: state.flowDescription,
+      nodes: state.nodes,
+      edges: state.edges,
+      userId: user.id,
+    };
+  
+    console.log('[Flow] Preparing changes to save:', changes);
+  
+    try {
+      const result = await saveChanges(changes);
+      console.log('[Flow] Save completed', result);
+      if (result) {
+        state.setFlowId(result.flowId);
+        state.setNodes(result.nodes);
+        state.setEdges(result.edges);
+        state.setIsFlowModalOpen(false);
+        toast({
+          title: "Success",
+          description: "Flow saved successfully.",
+        });
+      }
+    } catch (error) {
+      console.error('[Flow] Save failed:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : 'Failed to save the flow. Please try again.',
+        variant: "destructive"
+      });
+    }
+  }, [state, user, saveChanges, toast]);
+
+    //USE EFFECT HANDLE SAVE
+  useEffect(() => {
+    console.log('[Flow] Setting up save function');
+    setSaveNodes(handleSave);
+  }, [setSaveNodes, handleSave]);
 
   const memoizedFlowCanvas = useMemo(() => {
     console.log('[Flow] Memoizing FlowCanvas');
@@ -141,11 +176,7 @@ const Flow: React.FC = React.memo(() => {
         }}
         title={state.flowTitle}
         description={state.flowDescription}
-        onSave={() => {
-          console.log('[Flow] Saving flow and triggering save');
-          actions.handleSave();
-          triggerSave();
-        }}
+        onSave={handleSave}
         onChange={(field, value) => {
           console.log(`[Flow] Changing ${field} to:`, value);
           if (field === 'title') state.setFlowTitle(value);

@@ -101,7 +101,7 @@ function getBackgroundColor(type: string): string {
   switch (type) {
     case 'start': return '#6ede87';
     case 'end': return '#ff9a9a';
-    case 'sticky': return '#ffd700';
+    case 'sticky_note': return '#ffd700';
     default: return '#ffcc66';
   }
 }
@@ -110,7 +110,7 @@ function getBorderColor(type: string): string {
   switch (type) {
     case 'start': return '#3fa252';
     case 'end': return '#ff5757';
-    case 'sticky': return '#ffa500';
+    case 'sticky_note': return '#ffa500';
     default: return '#ffaa00';
   }
 }
