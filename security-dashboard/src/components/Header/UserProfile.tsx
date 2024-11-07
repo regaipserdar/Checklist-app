@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +22,7 @@ interface UserProfile {
 }
 
 const UserProfileDropdown: React.FC = () => {
+  const navigate = useNavigate();
   const { logout } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +40,7 @@ const UserProfileDropdown: React.FC = () => {
             username: currentUser.username,
             email: currentUser.email,
             name: currentUser.name,
-            avatar: currentUser.avatar,
+            avatar: currentUser.avatar || '',
           });
         } else {
           setError("User profile not found");
@@ -67,7 +69,10 @@ const UserProfileDropdown: React.FC = () => {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={`http://127.0.0.1:8090/api/files/${profile.id}/${profile.avatar}`} alt={profile.name || profile.username} />
+            <AvatarImage 
+              src={profile.avatar ? `http://127.0.0.1:8090/api/files/users/${profile.id}/${profile.avatar}` : undefined} 
+              alt={profile.name || profile.username} 
+            />
             <AvatarFallback>{(profile.name || profile.username).charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
         </Button>
@@ -80,9 +85,9 @@ const UserProfileDropdown: React.FC = () => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate('/profile')}>
           Profile
-        </DropdownMenuItem>
+        </DropdownMenuItem>   
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout}>
           Log out

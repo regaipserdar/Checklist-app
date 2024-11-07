@@ -1,49 +1,68 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Edit, ArrowLeft } from 'lucide-react';
+import { Edit, ArrowLeft, Save } from 'lucide-react';
+import log from 'loglevel';
 
 interface FlowHeaderProps {
   title: string;
   onEditFlow: () => void;
+  onSaveFlow: () => void;
   onBackToDashboard: () => void;
 }
 
-const FlowHeader: React.FC<FlowHeaderProps> = ({ title, onEditFlow, onBackToDashboard }) => {
-
-  useEffect(() => {
-    console.log("[FlowHeader] - FlowHeader component mounted");
-    console.log("[FlowHeader] - Received title:", title);
-  
-    return () => {
-      console.log("FlowHeader component unmounted");
-    };
-  }, [title, onEditFlow, onBackToDashboard]);
-
+const FlowHeader: React.FC<FlowHeaderProps> = ({ 
+  title, 
+  onEditFlow, 
+  onSaveFlow, 
+  onBackToDashboard 
+}) => {
   return (
     <div className="mb-4 flex justify-between items-center">
-      <h1 className="text-2xl font-bold">{title || 'Untitled Flow - [FlowHeader]'}</h1>
-      <div className="space-x-2">
+      {/* Sol tarafa alınan Dashboard butonu */}
+      <div className="flex items-center space-x-2">
         <Button 
           onClick={() => {
-            console.log("Edit Flow button clicked");
-            onEditFlow();
-          }} 
-          variant="outline" 
-          size="sm"
-        >
-          <Edit className="w-4 h-4 mr-2" />
-          Edit Flow
-        </Button>
-        <Button 
-          onClick={() => {
-            console.log("Back to Dashboard button clicked");
+            log.debug("[FlowHeader] Back to Dashboard button clicked");
             onBackToDashboard();
           }} 
           variant="outline"
           size="sm"
+          className="hover:bg-gray-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
+        </Button>
+      </div>
+
+      {/* Başlık */}
+      <h1 className="text-2xl font-bold">{title || 'Untitled Flow'}</h1>
+      
+      {/* Edit ve Save Butonları */}
+      <div className="flex space-x-2">
+        <Button 
+          onClick={() => {
+            log.debug("[FlowHeader] Edit Flow button clicked");
+            onEditFlow();
+          }} 
+          variant="outline" 
+          size="sm"
+          className="hover:bg-gray-200 transition-colors"
+        >
+          <Edit className="w-4 h-4 mr-2" />
+          Edit Flow
+        </Button>
+        
+        <Button 
+          onClick={() => {
+            log.debug("[FlowHeader] Save Flow button clicked");
+            onSaveFlow();
+          }} 
+          variant="outline" 
+          size="sm"
+          className="hover:bg-gray-200 transition-colors"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          Save Flow
         </Button>
       </div>
     </div>

@@ -31,3 +31,4 @@ tmp/
 temp/
 *.tmp
 *.bak
+pb/pb_data/data.db

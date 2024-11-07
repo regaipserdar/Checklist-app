@@ -1,3 +1,5 @@
+@import 'reactflow/dist/style.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -264,4 +266,24 @@
 
 @keyframes l10-1 {
   to {background-position-y: -.5em,0}
+}
+
+.react-flow__panel {
+  @apply transition-opacity duration-300;
+}
+
+.react-flow__panel:hover {
+  @apply opacity-100;
+}
+
+.react-flow__panel {
+  @apply opacity-50;
+}
+
+.react-flow__controls button {
+  @apply transition-colors duration-200;
+}
+
+.react-flow__controls button:hover {
+  @apply bg-muted;
 }

@@ -4,7 +4,8 @@ import Flow from './pages/Flow';
 import AuthenticationPage from './pages/Login/login';
 import ProtectedRoute from './components/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
-import Layout from './components/Layout';
+import Layout from './components/Layout/Layout';
+import ProfilePage from './pages/Profile';
 
 const routes: RouteObject[] = [
   {
@@ -23,13 +24,22 @@ const routes: RouteObject[] = [
             element: <Dashboard />,
           },
           {
-            path: 'flows/:flowId',
-            element: <Flow />,
+            path: 'flows',
+            children: [
+              {
+                path: ':flowId',
+                element: <Flow />,
+              },
+              {
+                path: 'new',
+                element: <Flow />,
+              }
+            ]
           },
           {
-            path: 'flows/new',
-            element: <Flow />,
-          },
+            path: 'profile',
+            element: <ProfilePage />,
+          }
         ],
       },
     ],

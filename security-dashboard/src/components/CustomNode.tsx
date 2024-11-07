@@ -3,7 +3,9 @@ import { Handle, Position, NodeProps } from 'reactflow';
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2 } from 'lucide-react';
 
-interface CustomNodeData {
+
+// Interface'i export ediyoruz
+export interface CustomNodeData {
   label: string;
   type: string;
   description?: string;
@@ -21,7 +23,16 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
   selected,
   ...rest
 }) => {
-  if (data.type === 'sticky') {
+  const nodeStyle = {
+    background: getBackgroundColor(data.type),
+    border: `.5px solid ${getBorderColor(data.type)}`,
+    padding: '10px',
+    borderRadius: '5px',
+    minWidth: '200px',
+    maxWidth: '300px',
+  };
+
+  if (data.type === 'sticky_note') {
     return (
       <div className={`sticky-note ${selected ? 'selected' : ''}`}>
         <div className="sticky-note-content">
@@ -49,15 +60,6 @@ const CustomNode: React.FC<NodeProps<CustomNodeData>> = ({
       </div>
     );
   }
-
-  const nodeStyle = {
-    background: getBackgroundColor(data.type),
-    border: `.5px solid ${getBorderColor(data.type)}`,
-    padding: '10px',
-    borderRadius: '5px',
-    minWidth: '200px',
-    maxWidth: '300px',
-  };
 
   return (
     <div style={nodeStyle} className={`custom-node relative ${selected ? 'selected' : ''}`}>

@@ -1,378 +1,431 @@
-import { useCallback, useRef, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Connection, Edge, Node, XYPosition, addEdge } from 'reactflow';
-import pb from '../../services/Pb-getFlowService';
-import { useAuth } from '../../context/AuthContext';
-import { createSystemFlowNodes } from '../../services/SystemFlow-Nodes';
-import { createDefaultNode } from '../../services/DefaultNodesService';
-import { getUserFlows, getFlowDetails, refreshUserFlows, refreshFlowDetails } from '../../services/UserFlowService';
+import { useCallback, useState, useRef, useEffect } from 'react';
+import { 
+  Node, 
+  Edge, 
+  useReactFlow, 
+  addEdge, 
+  Connection, 
+  applyNodeChanges, 
+  applyEdgeChanges,
+  NodeChange,
+  EdgeChange,
+  XYPosition,
+  NodeProps,
+  Viewport,
+  ReactFlowInstance
+} from 'reactflow';
 import { useSaveService } from '../../services/SaveService';
+import pb from '../../services/Pb-getFlowService';
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom';
 import log from 'loglevel';
+import { createUserFlowNodes } from '../../services/UserFlowService';
+import { CustomNodeData } from '@/components/CustomNode';
 
-export const useFlowActions = (state: ReturnType<typeof import('./useFlowState').useFlowState>) => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const loadingRef = useRef(false);
-  const renderCountRef = useRef(0);
-  const { toast } = useToast();
+interface FlowData {
+  nodes: Node[];
+  edges: Edge[];
+  viewport: Viewport;
+}
+
+interface SaveData {
+  flowId: string | null;
+  title: string;
+  description: string;
+  flow: FlowData;
+  userId: string;
+}
+
+// Log level ayarı
+log.setLevel('debug');
+
+export const useFlowActions = (initialNodes: Node[], initialEdges: Edge[]) => {
+  // State tanımlamaları
+  const [nodes, setNodes] = useState<Node[]>(initialNodes);
+  const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<Node<CustomNodeData> | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+
+  // Hook'lar
+  const { getViewport, project } = useReactFlow();
   const { saveChanges } = useSaveService();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Referanslar
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+
+  // Effect'ler
+  useEffect(() => {
+    log.debug('[useFlowActions] Updating nodes ref:', nodes);
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   useEffect(() => {
-    renderCountRef.current += 1;
-    log.debug(`[useFlowActions] rendered ${renderCountRef.current} times`);
-    return () => log.debug('[useFlowActions] cleanup');
-  });
+    log.debug('[useFlowActions] Updating edges ref:', edges);
+    edgesRef.current = edges;
+  }, [edges]);
 
-  const onConnect = useCallback((params: Connection | Edge) => {
-    log.debug('[useFlowActions] onConnect called with params:', params);
-    const newEdge: Edge = {
-      id: `e${params.source}-${params.target}`,
-      source: params.source!,
-      target: params.target!,
-      type: 'smoothstep',
-    };
-    state.setEdges((eds) => addEdge(newEdge, eds));
-  }, [state.setEdges]);
-
-  const loadFlow = useCallback(async (flowId: string) => {
-    log.debug(`[useFlowActions] loadFlow called with flowId: ${flowId}`);
+  // Yardımcı fonksiyonlar
+  const prepareFlowData = useCallback((): FlowData => {
+    const viewport = getViewport();
     
-    if (loadingRef.current) {
-      log.debug('[useFlowActions] Loading already in progress, skipping this request');
-      return;
-    }
-    
-    loadingRef.current = true;
-    log.debug('[useFlowActions] Loading started');
-    state.setIsLoading(true);
-  
-    try {
-      if (flowId && flowId !== 'new') {
-        log.debug(`[useFlowActions] Fetching existing flow with flowId: ${flowId}`);
-        const flowDetails = await getFlowDetails(flowId);
-        log.debug(`[useFlowActions] Successfully loaded flow details for flowId: ${flowId}`, flowDetails);
-        
-        state.setFlowId(flowDetails.id);
-        state.setFlowTitle(flowDetails.title);
-        state.setFlowDescription(flowDetails.description);
-        state.setNodes(flowDetails.nodes);
-        state.setEdges(flowDetails.edges);
-        
-      } else if (user) {
-        log.debug(`[useFlowActions] flowId is 'new' or missing. Fetching user flows for userId: ${user.id}`);
-        const userFlows = await getUserFlows(user.id);
-        log.debug(`[useFlowActions] Successfully loaded ${userFlows.length} flows for userId: ${user.id}`);
-        
-        const flowNodes = userFlows.map((flow, index) => 
-          createUserFlowNode(flow, { x: index * 200, y: 100 })
-        );
-        log.debug('[useFlowActions] Created flow nodes:', flowNodes);
-        
-        state.setNodes(flowNodes);
-        state.setEdges([]);
+    const preparedNodes = nodesRef.current.map(node => ({
+      id: node.id,
+      type: 'customNode',
+      position: node.position,
+      data: {
+        label: node.data.label,
+        description: node.data.description,
+        tips: node.data.tips,
+        usable_pentest_tools: node.data.usable_pentest_tools,
+        type: node.data.type,
       }
-    } catch (error) {
-      log.error('[useFlowActions] Error loading flow:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load flow. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      state.setIsLoading(false);
-      loadingRef.current = false;
-      log.debug('[useFlowActions] Flow loading process completed');
-    }
-  }, [state, user, toast]);
+    }));
 
-  const refreshFlow = useCallback(async (flowId: string) => {
-    log.debug('[useFlowActions] refreshFlow called with flowId:', flowId);
-    if (flowId && flowId !== 'new') {
-      const { nodes, edges } = await refreshFlowDetails(flowId);
-      log.debug('[useFlowActions] Refreshed flow details:', { nodes, edges });
-      state.setNodes(nodes);
-      state.setEdges(edges);
-    } else if (user) {
-      const userFlows = await refreshUserFlows(user.id);
-      log.debug('[useFlowActions] Refreshed user flows:', userFlows);
-      const flowNodes = userFlows.map((flow, index) => 
-        createUserFlowNode(flow, { x: index * 200, y: 100 })
-      );
-      log.debug('[useFlowActions] Refreshed flow nodes:', flowNodes);
-      state.setNodes(flowNodes);
-      state.setEdges([]);
-    }
-  }, [state, user]);
+    const preparedEdges = edgesRef.current.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      sourceHandle: edge.sourceHandle,
+      targetHandle: edge.targetHandle,
+      type: edge.type
+    }));
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    log.debug('[useFlowActions] onDragOver called');
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    return {
+      nodes: preparedNodes,
+      edges: preparedEdges,
+      viewport
+    };
+  }, [getViewport]);
+
+  // Node işlemleri
+  const onNodeEdit = useCallback((event: React.MouseEvent, nodeProps: NodeProps<CustomNodeData>) => {
+    log.info('[useFlowActions] Node edit triggered for node:', nodeProps);
+    event.stopPropagation();
+    
+    const nodeToEdit = nodes.find(n => n.id === nodeProps.id);
+    if (nodeToEdit) {
+      setSelectedNode(nodeToEdit);
+      setIsDrawerOpen(true);
+    }
+  }, [nodes]);
+
+  const onNodeDelete = useCallback((event: React.MouseEvent, nodeId: string) => {
+    log.info('[useFlowActions] Node delete triggered for nodeId:', nodeId);
+    event.stopPropagation();
+    
+    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+    setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+    
+    toast({
+      title: "Success",
+      description: "Node deleted successfully",
+    });
+  }, [toast]);
+
+  const transformNode = useCallback((node: Node) => {
+    log.debug('[useFlowActions] Transforming node:', node);
+    return {
+      ...node,
+      type: 'customNode',
+      data: {
+        ...node.data,
+        onEdit: onNodeEdit,
+        onDelete: onNodeDelete,
+        type: node.data.type || 'normal'
+      }
+    };
+  }, [onNodeEdit, onNodeDelete]);
+
+  // ReactFlow event handlers
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    log.debug('[useFlowActions] Processing nodes changes:', changes);
+    setNodes((nds) => {
+      const updatedNodes = applyNodeChanges(changes, nds);
+      return updatedNodes.map(transformNode);
+    });
+  }, [transformNode]);
+
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    log.debug('[useFlowActions] Processing edges changes:', changes);
+    setEdges((eds) => applyEdgeChanges(changes, eds));
   }, []);
 
-  const onDrop = useCallback(
-    async (event: React.DragEvent) => {
-      log.debug('[useFlowActions] onDrop called');
-      event.preventDefault();
+  const onConnect = useCallback((connection: Connection) => {
+    log.debug('[useFlowActions] Creating new connection:', connection);
+    setEdges((eds) => addEdge(connection, eds));
+  }, []);
 
-      if (!state.reactFlowWrapper.current) {
-        log.debug('[useFlowActions] React flow wrapper not initialized');
-        return;
-      }
+  // Flow işlemleri
+  const onSave = useCallback(async (flowId: string, title: string, description: string) => {
+    log.info('[useFlowActions] Save triggered:', { flowId, title, description });
+    setIsLoading(true);
 
-      const reactFlowBounds = state.reactFlowWrapper.current.getBoundingClientRect();
-      const type = event.dataTransfer.getData('application/reactflow');
-      log.debug('[useFlowActions] Dropped item type:', type);
-
-      const position = state.reactFlowInstanceRef.current?.screenToFlowPosition({
-        x: event.clientX - reactFlowBounds.left,
-        y: event.clientY - reactFlowBounds.top,
-      }) || { x: 0, y: 0 };
-      log.debug('[useFlowActions] Drop position:', position);
-
-      let parsedData;
-      try {
-        parsedData = JSON.parse(type);
-        log.debug('[useFlowActions] Parsed drop data:', parsedData);
-      } catch (error) {
-        log.debug('[useFlowActions] Drop data is not JSON, using as is');
-        parsedData = { type: type };
-      }
-
-      if (parsedData.type === 'systemFlow') {
-        log.debug('[useFlowActions] Handling system flow drop');
-        const systemFlow = state.systemFlows.find((flow: any) => flow.id === parsedData.flowId);
-        if (systemFlow) {
-          const result = await createSystemFlowNodes(systemFlow, position);
-          log.debug('[useFlowActions] Created system flow nodes:', result);
-          state.onNodesChange(result.nodes.map(node => ({ type: 'add', item: node })));
-          state.onEdgesChange(result.edges.map(edge => ({ type: 'add', item: edge })));
-        }
-      } else if (parsedData.type === 'userFlow') {
-        log.debug('[useFlowActions] Handling user flow drop');
-        const userFlow = state.userFlows.find((flow: any) => flow.id === parsedData.flowId);
-        if (userFlow) {
-          const newNode = createUserFlowNode(userFlow, position);
-          log.debug('[useFlowActions] Created user flow node:', newNode);
-          state.onNodesChange([{ type: 'add', item: newNode }]);
-        }
-      } else {
-        log.debug('[useFlowActions] Handling default node drop');
-        const newNode = createDefaultNode(parsedData.type, position);
-        log.debug('[useFlowActions] Created default node:', newNode);
-        state.onNodesChange([{ type: 'add', item: newNode }]);
-      }
-    },
-    [state]
-  );
-
-  const createUserFlowNode = (userFlow: any, position: XYPosition) => {
-    log.debug('[useFlowActions] Creating user flow node:', userFlow, position);
-    return {
-      id: `userFlow-${userFlow.id}`,
-      type: 'customNode',
-      position,
-      data: { 
-        label: userFlow.title,
-        type: 'userFlow',
-        description: userFlow.description,
-        tips: '',
-        usable_pentest_tools: '',
-      },
-    };
-  };
-
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    log.debug('[useFlowActions] Node clicked:', node);
-    state.setSelectedNode(node);
-    state.setEditedNodeData({ 
-      label: node.data.label, 
-      description: node.data.description || '',
-      tips: node.data.tips || '',
-      usable_pentest_tools: node.data.usable_pentest_tools || '',
-    });
-    state.setIsDrawerOpen(true);
-  }, [state]);
-
-  const handleEdit = useCallback((node: Node) => {
-    log.debug('[useFlowActions] Editing node:', node);
-    state.setSelectedNode(node);
-    state.setEditedNodeData({ 
-      label: node.data.label, 
-      description: node.data.description || '',
-      tips: node.data.tips || '',
-      usable_pentest_tools: node.data.usable_pentest_tools || '',
-    });
-    state.setIsDrawerOpen(true);
-  }, [state]);
-
-  const handleDelete = useCallback((nodeId: string) => {
-    log.debug('[useFlowActions] Deleting node:', nodeId);
-    state.onNodesChange([{ type: 'remove', id: nodeId }]);
-    state.setSelectedNode(null);
-    state.setIsDrawerOpen(false);
-    toast({
-      title: "Node Deleted",
-      description: "The node has been successfully removed.",
-      variant: "destructive"
-    });
-  }, [state, toast]);
-
-  const handleNodeDataChange = useCallback((field: string, value: string) => {
-    log.debug('[useFlowActions] Node data changed:', field, value);
-    state.setEditedNodeData((prev) => ({ ...prev, [field]: value }));
-  }, [state]);
-
-  const handleSaveNodeData = useCallback((updatedData: any) => {
-    log.debug('[useFlowActions] Saving node data:', updatedData);
-    if (state.selectedNode) {
-      state.setNodes((nds) =>
-        nds.map((node) =>
-          node.id === state.selectedNode!.id
-            ? { ...node, data: { ...node.data, ...updatedData } }
-            : node
-        )
-      );
-      state.setSelectedNode(null);
-      state.setIsDrawerOpen(false);
-      toast({
-        title: "Node Updated",
-        description: "The node has been successfully updated.",
-      });
-    }
-  }, [state, toast]);
-
-  const handleCreateNewFlow = useCallback(async () => {
-    log.debug('[useFlowActions] Creating new flow');
     try {
-      const newFlow = await pb.collection('flows').create({
-        title: state.flowTitle,
-        description: state.flowDescription,
-        creator: user?.id,
-        isSystemFlow: false,
-        isShared: true,
-      });
-      log.debug('[useFlowActions] New flow created:', newFlow);
-      state.setFlowId(newFlow.id);
-      state.setIsNewFlowModalOpen(false);
-      navigate(`/flows/${newFlow.id}`, { replace: true });
-      toast({
-        title: "Success",
-        description: "New flow created successfully.",
-      });
-    } catch (error) {
-      log.error('[useFlowActions] Error creating new flow:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : 'Failed to create new flow. Please try again.',
-        variant: "destructive"
-      });
-    }
-  }, [state, user, navigate, toast]);
-
-  const handleBackToDashboard = useCallback(() => {
-    log.debug('[useFlowActions] Navigating back to dashboard');
-    navigate('/');
-  }, [navigate]);
-
-
-  //handlesave !! 
-
-
-  const handleSave = useCallback(async () => {
-  log.debug('[useFlowActions] Saving flow');
-  if (!user) {
-    log.error('[useFlowActions] No user logged in');
-    toast({
-      title: "Error",
-      description: "You must be logged in to save a flow.",
-      variant: "destructive"
-    });
-    return;
-  }
-
-  log.debug('[useFlowActions] Current state:', state);
-  
-  const changes = {
-    flowId: state.flowId,
-    flowTitle: state.flowTitle,
-    flowDescription: state.flowDescription,
-    nodes: state.nodes,
-    edges: state.edges,
-    userId: user.id,
-  };
-  
-  log.debug('[useFlowActions] Preparing changes to save:', changes);
-  
-  try {
-    log.debug('[useFlowActions] Calling saveChanges');
-    const result = await saveChanges(changes);
-    log.debug('[useFlowActions] Flow saved with result:', result);
-
-    if (result) {
-      state.setFlowId(result.flowId);
-      state.setNodes(result.nodes);
-      state.setEdges(result.edges);
-      state.setIsFlowModalOpen(false);
-
-      if (!state.flowId) {
-        log.debug('[useFlowActions] Navigating to new flow page');
-        navigate(`/flows/${result.flowId}`, { replace: true });
+      const currentUser = pb.authStore.model;
+      if (!currentUser || !currentUser.id) {
+        throw new Error("No authenticated user found");
       }
 
+      const flowData = prepareFlowData();
+      const result = await saveChanges({
+        flowId,
+        title,
+        description,
+        flow: flowData,
+        userId: currentUser.id,
+      });
+
+      log.info('[useFlowActions] Save completed successfully:', result);
       toast({
         title: "Success",
         description: "Flow saved successfully.",
       });
-    } else {
-      throw new Error('Save operation did not return a result');
+
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log.error('[useFlowActions] Error saving flow:', error);
+      toast({
+        title: "Error",
+        description: `Failed to save flow: ${errorMessage}`,
+        variant: "destructive"
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    log.error('[useFlowActions] Error saving flow:', error);
+  }, [prepareFlowData, saveChanges, toast]);
+
+  const updateFlow = useCallback(async (flowId: string, title: string, description: string) => {
+    log.info('[useFlowActions] Updating flow:', { flowId, title, description });
+    setIsLoading(true);
     
-    let errorMessage = 'Failed to save the flow. Please try again.';
-    if (error instanceof Error) {
-      log.error('[useFlowActions] Error details:', error.message);
-      log.error('[useFlowActions] Error stack:', error.stack);
-      errorMessage = error.message;
+    try {
+      const flowData = prepareFlowData();
+      const updateData = {
+        title,
+        description,
+        flow: JSON.stringify(flowData),
+        isSystemFlow: false,
+        isShared: true,
+      };
+
+      const updatedFlow = await pb.collection('flows').update(flowId, updateData);
+      
+      toast({
+        title: "Success",
+        description: "Flow updated successfully.",
+      });
+
+      return {
+        ...updatedFlow,
+        flow: typeof updatedFlow.flow === 'string' ? JSON.parse(updatedFlow.flow) : updatedFlow.flow
+      };
+    } catch (error) {
+      log.error('[useFlowActions] Error updating flow:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update flow. Please try again.",
+        variant: "destructive"
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
+  }, [prepareFlowData, toast]);
+
+  // Drag & Drop işlemleri
+  const onDrop = useCallback((event: React.DragEvent) => {
+    log.debug('[useFlowActions] Drop event triggered');
+    event.preventDefault();
+    
+    const reactFlowBounds = event.currentTarget.getBoundingClientRect();
+    const position = project({
+      x: event.clientX - reactFlowBounds.left,
+      y: event.clientY - reactFlowBounds.top
+    });
+
+    const droppedData = event.dataTransfer.getData('application/reactflow');
+
+    try {
+      const parsedData = JSON.parse(droppedData);
+      if (parsedData.type === 'systemFlow' || parsedData.type === 'userFlow') {
+        loadAndCreateNodesForFlow(parsedData.flowId, position);
+      } else {
+        const newNode = transformNode({
+          id: `node_${Date.now()}`,
+          type: 'customNode',
+          position,
+          data: { 
+            label: `${parsedData} node`,
+            type: parsedData
+          }
+        });
+        setNodes((nds) => nds.concat(newNode));
+      }
+    } catch (error) {
+      const newNode = transformNode({
+        id: `node_${Date.now()}`,
+        type: 'customNode',
+        position,
+        data: { 
+          label: `${droppedData} node`,
+          type: droppedData
+        }
+      });
+      setNodes((nds) => nds.concat(newNode));
+    }
+  }, [project, transformNode]);
+
+  const loadAndCreateNodesForFlow = useCallback(async (flowId: string, position: XYPosition) => {
+    log.info('[useFlowActions] Loading and creating nodes for flow:', flowId);
+    try {
+      const { nodes: newNodes, edges: newEdges } = await createUserFlowNodes({ id: flowId } as any);
+      const offsetNodes = newNodes.map(node => ({
+        ...transformNode(node),
+        position: {
+          x: node.position.x + position.x,
+          y: node.position.y + position.y
+        }
+      }));
+      
+      setNodes((nds) => [...nds, ...offsetNodes]);
+      setEdges((eds) => [...eds, ...newEdges]);
+
+      toast({
+        title: "Success",
+        description: "Flow nodes loaded successfully.",
+      });
+    } catch (error) {
+      log.error('[useFlowActions] Error loading and creating nodes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load flow nodes. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [toast, transformNode]);
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  // Diğer işlemler
+  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    log.info('[useFlowActions] Node clicked:', { nodeId: node.id });
+    setSelectedNode(node as Node<CustomNodeData>);
+    setIsDrawerOpen(true);
+  }, []);
+
+  const handleBackToDashboard = useCallback(() => {
+    log.info('[useFlowActions] Navigating back to dashboard');
+    navigate('/dashboard');
+  }, [navigate]);
+
+  const handleSaveNodeData = useCallback((nodeData: Partial<CustomNodeData>) => {
+    log.info('[useFlowActions] Saving node data:', nodeData);
+    if (!selectedNode) return;
+
+    setNodes((nds) => 
+      nds.map((node) => 
+        node.id === selectedNode.id
+          ? transformNode({
+              ...node,
+              data: { ...node.data, ...nodeData }
+            })
+          : node
+      )
+    );
+
+    setIsDrawerOpen(false);
+    setSelectedNode(null);
 
     toast({
-      title: "Error",
-      description: errorMessage,
-      variant: "destructive"
+      title: "Success",
+      description: "Node updated successfully.",
     });
-  }
-}, [state, user, navigate, saveChanges, toast]);
+  }, [selectedNode, transformNode, toast]);
 
-  return useMemo(() => ({
-    onConnect,
-    onDragOver,
-    onDrop,
-    onNodeClick,
-    handleEdit,
-    loadFlow,
-    isLoading: loadingRef.current,
-    refreshFlow,
-    handleDelete,
-    handleNodeDataChange,
-    handleSaveNodeData,
-    handleSave,
-    handleCreateNewFlow,
-    handleBackToDashboard,
-  }), [
-    onConnect,
-    onDrop,
-    onNodeClick,
-    handleEdit,
-    loadFlow,
-    refreshFlow,
-    handleDelete,
-    handleNodeDataChange,
-    handleSaveNodeData,
-    handleSave,
-    handleCreateNewFlow,
-    handleBackToDashboard
-  ]);
+  const createNewFlow = useCallback(async (userId: string, title: string, description: string) => {
+    log.info('[useFlowActions] Creating new flow:', { userId, title });
+    setIsLoading(true);
+    
+    try {
+      const newFlow = await pb.collection('flows').create({
+        title,
+        description,
+        creator: userId,
+        isSystemFlow: false,
+        isShared: false,
+        flow: JSON.stringify({ nodes: [], edges: [], viewport: getViewport() })
+      });
+
+      toast({
+        title: "Success",
+        description: "New flow created successfully.",
+      });
+
+      return newFlow;
+    } catch (error) {
+      log.error('[useFlowActions] Error creating new flow:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create new flow. Please try again.",
+        variant: "destructive"
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast, getViewport]);
+
+  // Hook'un dönüş değerleri
+// useFlowActions.ts içinde return kısmı
+return {
+  // State
+  nodes,
+  edges,
+  isLoading,
+  selectedNode,
+  isDrawerOpen,
+  reactFlowInstance,
+
+  // Setters
+  setNodes,
+  setEdges,
+  setIsLoading,
+  setSelectedNode,         // Eklendi
+  setIsDrawerOpen,
+  setReactFlowInstance,
+
+  // Node işlemleri
+  onNodeEdit,
+  onNodeDelete,
+  transformNode,
+  handleSaveNodeData,
+
+  // Flow işlemleri
+  onSave,
+  updateFlow,
+  createNewFlow,
+
+  // ReactFlow event handlers
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  onNodeClick,
+
+  // Drag & Drop
+  onDrop,
+  onDragOver,
+
+  // Navigation
+  handleBackToDashboard,
+};
 };

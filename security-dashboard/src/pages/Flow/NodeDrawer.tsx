@@ -3,6 +3,7 @@ import { Node } from 'reactflow';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { CustomNodeData } from '@/components/CustomNode';
 import {
   Drawer,
   DrawerClose,
@@ -17,18 +18,19 @@ import { useToast } from "@/hooks/use-toast";
 interface NodeDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  node: Node | null;
-  onSave: (updatedData: any) => void;
+  node: Node<CustomNodeData> | null;
+  onSave: (updatedData: Partial<CustomNodeData>) => void;
 }
 
 const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }) => {
   const { toast } = useToast();
-  const [editedData, setEditedData] = useState({
+  const [editedData, setEditedData] = useState<Partial<CustomNodeData>>({
     label: '',
     description: '',
     tips: '',
     usable_pentest_tools: '',
   });
+  
   const [errors, setErrors] = useState({
     label: '',
     description: '',
@@ -36,7 +38,7 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
   });
 
   useEffect(() => {
-    if (node) {
+    if (node?.data) {
       setEditedData({
         label: node.data.label || '',
         description: node.data.description || '',
@@ -46,10 +48,10 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
     }
   }, [node]);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: keyof CustomNodeData, value: string) => {
     setEditedData(prev => ({ ...prev, [field]: value }));
 
-    if (['label', 'description', 'tips'].includes(field) && value.trim() === '') {
+    if (['label'].includes(field) && value.trim() === '') {
       setErrors(prev => ({ ...prev, [field]: `${field} is required.` }));
     } else {
       setErrors(prev => ({ ...prev, [field]: '' }));
@@ -57,20 +59,11 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
   };
 
   const handleSave = () => {
-    const requiredFields = ['label', 'description', 'tips'];
-    let hasErrors = false;
-
-    requiredFields.forEach(field => {
-      if (editedData[field as keyof typeof editedData].trim() === '') {
-        setErrors(prev => ({ ...prev, [field]: `${field} is required.` }));
-        hasErrors = true;
-      }
-    });
-
-    if (hasErrors) {
+    if (!editedData.label?.trim()) {
+      setErrors(prev => ({ ...prev, label: 'Label is required.' }));
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields.",
+        description: "Label is required.",
         variant: "destructive",
       });
       return;
@@ -109,7 +102,6 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
               className="mb-2"
               placeholder="Node Description"
             />
-            {errors.description && <p className="text-red-500 text-sm">{errors.description}</p>}
 
             <Textarea
               value={editedData.tips}
@@ -117,7 +109,6 @@ const NodeDrawer: React.FC<NodeDrawerProps> = ({ isOpen, onClose, node, onSave }
               className="mb-2"
               placeholder="Tips"
             />
-            {errors.tips && <p className="text-red-500 text-sm">{errors.tips}</p>}
 
             <Textarea
               value={editedData.usable_pentest_tools}
