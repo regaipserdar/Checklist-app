@@ -1,98 +1,159 @@
-# Security Dashboard
+# Security Checklist Flow Dashboard
 
-## Proje Özeti
+## Overview
 
-Bu proje, güvenlik testleri ve analizleri için interaktif bir dashboard uygulamasıdır. JWT token testleri gibi güvenlik kontrolleri için görsel bir akış editörü sağlar ve GitHub entegrasyonu ile versiyon kontrolü imkanı sunar.
+An interactive web application for creating, managing, and sharing security testing workflows and checklists. Built with React and React Flow, it enables security professionals to create visual flowcharts of testing procedures, manage checklist items, and collaborate on security assessments.
 
-## Özellikler
+## Features
 
-- İnteraktif flow editörü
-- JWT token test adımları
-- GitHub entegrasyonu
-- Detaylı açıklama paneli
-- Arama fonksiyonu
-- Responsive tasarım
+### Core Functionality
+- Interactive flow editor for creating security test workflows
+- Drag-and-drop interface for building checklists
+- Custom node types for different security testing phases
+- Real-time collaboration and sharing capabilities
+- Dark/light theme support
 
-## Kullanılan Teknolojiler
+### Flow Management
+- Create and manage multiple security test flows
+- System-defined template flows
+- User-created custom flows
+- Sticky notes for additional documentation
+- Node categorization (start, process, end nodes)
 
-- React
-- React Flow
-- Tailwind CSS
-- Shadcn UI
-- GitHub API
-- npm install react react-dom react-scripts reactflow tailwindcss @headlessui/react @heroicons/react
-- npx shadcn-ui@latest init
+### User Interface
+- Responsive layout with collapsible sidebar
+- Search functionality for flows and nodes
+- Detailed node editing with descriptions and tools
+- Interactive controls for flow manipulation
+- Modern UI with Tailwind CSS and shadcn/ui components
 
-## Proje Yapısı
+## Project Structure
 
 ```
-security-dashboard/
-├── public/
-├── src/
-│   ├── components/
-│   │   ├── Layout/
-│   │   ├── Editor/
-│   │   ├── DescriptionPanel/
-│   │   └── Common/
-│   ├── hooks/
-│   ├── services/
-│   ├── context/
-│   ├── styles/
-│   ├── utils/
-│   ├── App.js
-│   └── index.js
-├── .gitignore
-├── package.json
-└── README.md
+src/
+├── assets/
+│   └── react.svg
+├── components/
+│   ├── CustomNode.tsx
+│   ├── Footer/
+│   ├── Header/
+│   │   ├── Header.tsx
+│   │   └── UserProfile.tsx
+│   ├── Layout/
+│   ├── NewFlowModal.tsx
+│   ├── ProtectedRoute.tsx
+│   ├── Sidebar/
+│   └── ui/
+│       ├── alert.tsx
+│       ├── avatar.tsx
+│       ├── button.tsx
+│       └── ... (other UI components)
+├── context/
+│   └── AuthContext.tsx
+├── hooks/
+│   └── use-toast.ts
+├── lib/
+│   └── utils.ts
+├── pages/
+│   ├── Dashboard/
+│   ├── Flow/
+│   │   ├── FlowCanvas.tsx
+│   │   ├── FlowDialog.tsx
+│   │   ├── FlowHeader.tsx
+│   │   ├── NodeDrawer.tsx
+│   │   ├── useFlowActions.ts
+│   │   ├── useFlowEffects.ts
+│   │   └── useFlowState.ts
+│   ├── Login/
+│   ├── NotFoundPage.tsx
+│   └── Profile/
+├── services/
+│   ├── Authservice.tsx
+│   ├── CacheService.tsx
+│   ├── DefaultNodesService.tsx
+│   ├── FlowContexts.tsx
+│   ├── Pb-getFlowService.tsx
+│   ├── SaveService.ts
+│   ├── SystemFlow-Nodes.tsx
+│   ├── UserFlowService.tsx
+│   └── apiService.tsx
+└── routes.tsx
 ```
 
-## Kurulum
+## Installation
 
-1. Repoyu klonlayın:
-   ```
-   git clone https://github.com/regaipserdar/security-dashboard.git
-   ```
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd security-checklist-flow
+```
 
-2. Proje dizinine gidin:
-   ```
-   cd security-dashboard
-   ```
+2. Install dependencies:
+```bash
+npm install
+```
 
-3. Bağımlılıkları yükleyin:
-   ```
-   npm install
-   ```
+3. Set up environment variables:
+```bash
+cp .env.example .env
+```
 
-4. Uygulamayı başlatın:
-   ```
-   npm start
-   ```
+4. Start the development server:
+```bash
+npm run dev
+```
 
-## Kullanım
+## Required Dependencies
 
-- Flow editörü kullanarak güvenlik test adımlarınızı oluşturun.
-- Her adım için açıklama, payload ve araç listesi ekleyin.
-- GitHub entegrasyonu ile çalışmalarınızı kaydedin ve sürüm kontrolü yapın.
+```bash
+# Core dependencies
+npm install react react-dom react-router-dom reactflow @radix-ui/react-dropdown-menu @radix-ui/react-dialog
 
-## Katkıda Bulunma
+# UI and styling
+npm install tailwindcss postcss autoprefixer
+npm install class-variance-authority clsx tailwind-merge
+npm install lucide-react
 
-1. Bu repoyu fork edin
-2. Yeni bir feature branch oluşturun (`git checkout -b feature/AmazingFeature`)
-3. Değişikliklerinizi commit edin (`git commit -m 'Add some AmazingFeature'`)
-4. Branch'inizi push edin (`git push origin feature/AmazingFeature`)
-5. Bir Pull Request oluşturun
+# Additional utilities
+npm install next-themes react-helmet-async
+```
 
-## Bash Script 
-,,,
-mkdir -p src/{components,pages,styles,utils,hooks,context,types} && touch src/{components,pages,styles,utils,hooks,context,types}/.gitkeep && touch src/App.tsx src/index.tsx
-,,,
+## Environment Configuration
 
-## Lisans
+```bash
+# .env
+VITE_APP_API_URL=http://localhost:8090
+VITE_APP_VERSION=1.0.0
+```
 
-Bu proje [MIT Lisansı](https://choosealicense.com/licenses/mit/) altında lisanslanmıştır.
+## Development Scripts
 
-## İletişim
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "serve": "vite preview",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  }
+}
+```
 
-Proje Sahibi - [@regaipserdar](https://github.com/regaipserdar)
+## Contributing
 
-Proje Linki: [https://github.com/regaipserdar/security-dashboard](https://github.com/regaipserdar/security-dashboard)
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+Project Maintainer - [@regaipserdar](https://github.com/regaipserdar)
+
+Project Link: [https://github.com/regaipserdar/security-checklist-flow](https://github.com/regaipserdar/security-checklist-flow)
