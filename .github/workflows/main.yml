@@ -1,5 +1,3 @@
-# .github/workflows/deploy.yml
-
 name: Deploy to Plesk
 
 on:
@@ -13,37 +11,39 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
+      # Proje dizinine git
+      - name: Change to project directory
+        run: |
+          cd security-dashboard
+          pwd  # Debug için dizini yazdır
+          ls -la  # Debug için dosyaları listele
+      
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '20'
-          
+          cache: 'npm'
+          cache-dependency-path: security-dashboard/package-lock.json
+      
+      # Bağımlılıkları yükle
       - name: Install Dependencies
-        run: |
-          npm ci
+        working-directory: ./security-dashboard
+        run: npm ci
           
+      # Build al
       - name: Build
-        run: |
-          npm run build
+        working-directory: ./security-dashboard
+        run: npm run build
         env:
           VITE_POCKETBASE_URL: 'https://checklist.rooterbyte.com'
           
+      # Deploy et
       - name: Deploy to Plesk
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: checklist.rooterbyte.com
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./dist/
+          local-dir: ./security-dashboard/dist/
           server-dir: /httpdocs/
-          dangerous-clean-slate: true # Deploy öncesi hedef dizini temizler
-          
-      - name: Post Deploy Commands
-        uses: appleboy/ssh-action@master
-        with:
-          host: checklist.rooterbyte.com
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          script: |
-            # Gerekli post-deploy komutları buraya
-            echo "Deployment completed"
+          dangerous-clean-slate: true
