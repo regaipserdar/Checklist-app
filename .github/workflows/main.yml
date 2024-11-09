@@ -42,8 +42,8 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: checklist.rooterbyte.com
-          username: ${{ secrets.SSH_USERNAME }}
-          password: ${{ secrets.SSH_PASSWORD }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
           script: |
             # Gerekli post-deploy komutları buraya
             echo "Deployment completed"
