@@ -11,13 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       
-      # Proje dizinine git
-      - name: Change to project directory
-        run: |
-          cd security-dashboard
-          pwd  # Debug için dizini yazdır
-          ls -la  # Debug için dosyaları listele
-      
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
@@ -25,20 +18,31 @@ jobs:
           cache: 'npm'
           cache-dependency-path: security-dashboard/package-lock.json
       
-      # Bağımlılıkları yükle
       - name: Install Dependencies
         working-directory: ./security-dashboard
-        run: npm ci
+        run: |
+          npm ci
+          npm i -D @types/pocketbase
+          npm list pocketbase
+          npm list @types/pocketbase
           
-      # Build al
+      - name: Type Check
+        working-directory: ./security-dashboard
+        run: |
+          echo "Running TypeScript check..."
+          npx tsc --noEmit
+          
       - name: Build
         working-directory: ./security-dashboard
-        run: npm run build
+        if: always()  # Önceki adım başarısız olsa bile build'i dene
+        run: |
+          echo "Starting build process..."
+          npm run build
         env:
           VITE_POCKETBASE_URL: 'https://checklist.rooterbyte.com'
           
-      # Deploy et
       - name: Deploy to Plesk
+        if: success()  # Sadece build başarılı olursa deploy et
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: checklist.rooterbyte.com
