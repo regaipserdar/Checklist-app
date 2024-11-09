@@ -1,0 +1,49 @@
+# .github/workflows/deploy.yml
+
+name: Deploy to Plesk
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20'
+          
+      - name: Install Dependencies
+        run: |
+          npm ci
+          
+      - name: Build
+        run: |
+          npm run build
+        env:
+          VITE_POCKETBASE_URL: 'https://checklist.rooterbyte.com'
+          
+      - name: Deploy to Plesk
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: checklist.rooterbyte.com
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./dist/
+          server-dir: /httpdocs/
+          dangerous-clean-slate: true # Deploy öncesi hedef dizini temizler
+          
+      - name: Post Deploy Commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: checklist.rooterbyte.com
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            # Gerekli post-deploy komutları buraya
+            echo "Deployment completed"
