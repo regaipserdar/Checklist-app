@@ -25,6 +25,8 @@ export interface FlowState {
   selectedNode: Node<CustomNodeData> | null;
   setSelectedNode: React.Dispatch<React.SetStateAction<Node<CustomNodeData> | null>>;
   isDrawerOpen: boolean;
+  isFlowModalOpen: boolean;
+  setIsFlowModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   alert: AlertState | null;
   setAlert: React.Dispatch<React.SetStateAction<AlertState | null>>;
@@ -44,6 +46,7 @@ export const useFlowState = (): FlowState => {
   const [flowId, setFlowId] = useState<string | null>(
     paramFlowId && paramFlowId !== 'new' ? paramFlowId : null
   );
+  const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   
   const reactFlowWrapper = useRef<HTMLDivElement | null>(null);
   const reactFlowInstanceRef = useRef<ReactFlowInstance | null>(null);
@@ -114,6 +117,8 @@ export const useFlowState = (): FlowState => {
     setFlowDescription,
     selectedNode,
     setSelectedNode,
+    isFlowModalOpen,
+    setIsFlowModalOpen,
     isDrawerOpen,
     setIsDrawerOpen,
     alert,

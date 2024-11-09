@@ -28,13 +28,13 @@ interface FlowData {
   viewport: Viewport;
 }
 
-interface SaveData {
-  flowId: string | null;
-  title: string;
-  description: string;
-  flow: FlowData;
-  userId: string;
-}
+// interface SaveData {
+//   flowId: string | null;
+//   title: string;
+//   description: string;
+//   flow: FlowData;
+//   userId: string;
+// }
 
 // Log level ayarı
 log.setLevel('debug');
@@ -317,7 +317,7 @@ export const useFlowActions = (initialNodes: Node[], initialEdges: Edge[]) => {
   }, []);
 
   // Diğer işlemler
-  const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     log.info('[useFlowActions] Node clicked:', { nodeId: node.id });
     setSelectedNode(node as Node<CustomNodeData>);
     setIsDrawerOpen(true);

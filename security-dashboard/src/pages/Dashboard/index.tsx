@@ -113,7 +113,7 @@ const FlowWithProvider: React.FC = () => {
   );
 
   const onNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
+    (_: React.MouseEvent, node: Node) => {
       setNodes((nds) =>
         nds.map((n) => ({
           ...n,
